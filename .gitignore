@@ -1,0 +1,61 @@
+# Xcode — User State (varies per developer, causes merge conflicts)
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.moved-aside
+*.pbxuser
+*.xccheckout
+*.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+
+# Xcode Build Artifacts
+DerivedData/
+build/
+*.hmap
+*.ipa
+*.app
+*.dSYM.zip
+*.dSYM
+
+# Xcode Scheme Management
+*.xcscheme
+!*.xcscheme/*.xcscheme
+
+# macOS Junk
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.VolumeIcon.icns
+
+# Swift Package Manager
+.build/
+.swiftpm/xcode/xcuserdata/
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+
+# CocoaPods
+Pods/
+Podfile.lock
+
+# Carthage
+Carthage/Build/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# IDE (VS Code, etc.)
+.vscode/
+*.swp
+*.swo
+*~
+
+# Claude Code
+.claude/worktrees/
+.claude/plans/

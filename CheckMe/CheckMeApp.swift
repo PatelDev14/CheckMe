@@ -12,21 +12,30 @@ import SwiftData
 struct CheckMeApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            ScanModel.self,
+            GeneralSummaryModel.self,
+            SavedGutPrediction.self,
+            IngredientsModel.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            return try ModelContainer(for: schema, configurations: [config])
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
     }()
+
+    @State private var fmManager = FoundationModelsManager()
+    @State private var profileStore = UserProfileStore()
+    @State private var themeManager = ThemeManager()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
         }
         .modelContainer(sharedModelContainer)
+        .environment(fmManager)
+        .environment(profileStore)
+        .environment(themeManager)
     }
 }
