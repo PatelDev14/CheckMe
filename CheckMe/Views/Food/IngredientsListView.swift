@@ -120,62 +120,20 @@ struct IngredientsListView: View {
                     Text(gutPrediction.prediction)
                         .font(.subheadline)
                         .foregroundStyle(.white.opacity(0.85))
-                        .lineLimit(nil)  // Allow text wrapping
+                        .lineLimit(nil)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    // Trigger badges — ingredients to avoid
                     if !gutPrediction.triggers.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("Avoid", systemImage: "xmark.octagon.fill")
-                                .font(.caption).fontWeight(.semibold)
-                                .foregroundStyle(.red.opacity(0.8))
-                            FlowLayout(spacing: 6) {
-                                ForEach(gutPrediction.triggers, id: \.self) { trigger in
-                                    Text(trigger)
-                                        .font(.caption).fontWeight(.medium)
-                                        .foregroundStyle(.red)
-                                        .padding(.horizontal, 10).padding(.vertical, 4)
-                                        .background(Capsule().fill(Color.red.opacity(0.12)))
-                                        .overlay(Capsule().stroke(Color.red.opacity(0.3), lineWidth: 1))
-                                }
-                            }
-                        }
+                        triggerBadgesSection(gutPrediction.triggers)
                     }
 
-                    // Caution badges — mild concerns to watch
                     if !gutPrediction.cautions.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("Watch", systemImage: "exclamationmark.triangle.fill")
-                                .font(.caption).fontWeight(.semibold)
-                                .foregroundStyle(.yellow.opacity(0.9))
-                            FlowLayout(spacing: 6) {
-                                ForEach(gutPrediction.cautions, id: \.self) { caution in
-                                    Text(caution)
-                                        .font(.caption).fontWeight(.medium)
-                                        .foregroundStyle(.yellow)
-                                        .padding(.horizontal, 10).padding(.vertical, 4)
-                                        .background(Capsule().fill(Color.yellow.opacity(0.1)))
-                                        .overlay(Capsule().stroke(Color.yellow.opacity(0.3), lineWidth: 1))
-                                }
-                            }
-                        }
+                        cautionBadgesSection(gutPrediction.cautions)
                     }
 
-                    // Tip row
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "lightbulb.fill")
-                            .font(.caption)
-                            .foregroundStyle(.yellow)
-                            .lineLimit(1)
-                        Text(gutPrediction.tip)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(nil)  // Allow wrapping
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(10)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.05)))
+                    tipRow(gutPrediction.tip)
                 }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
                 .padding(16)
             }
             .background(RoundedRectangle(cornerRadius: 16).fill(themeManager.selectedTheme.colors.surface))
@@ -467,6 +425,64 @@ struct IngredientsListView: View {
             modelContext.delete(scan)
             try? modelContext.save()
         }
+    }
+
+    // MARK: - Badge Sections (extracted to reduce type-checker complexity)
+
+    private func triggerBadgesSection(_ triggers: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Avoid", systemImage: "xmark.octagon.fill")
+                .font(.caption).fontWeight(.semibold)
+                .foregroundStyle(.red.opacity(0.8))
+            FlowLayout(spacing: 6) {
+                ForEach(triggers, id: \.self) { trigger in
+                    Text(trigger)
+                        .font(.caption).fontWeight(.medium)
+                        .foregroundStyle(.red)
+                        .lineLimit(nil)
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .background(Capsule().fill(Color.red.opacity(0.12)))
+                        .overlay(Capsule().stroke(Color.red.opacity(0.3), lineWidth: 1))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func cautionBadgesSection(_ cautions: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Watch", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption).fontWeight(.semibold)
+                .foregroundStyle(.yellow.opacity(0.9))
+            FlowLayout(spacing: 6) {
+                ForEach(cautions, id: \.self) { caution in
+                    Text(caution)
+                        .font(.caption).fontWeight(.medium)
+                        .foregroundStyle(.yellow)
+                        .lineLimit(nil)
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .background(Capsule().fill(Color.yellow.opacity(0.1)))
+                        .overlay(Capsule().stroke(Color.yellow.opacity(0.3), lineWidth: 1))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func tipRow(_ tip: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "lightbulb.fill")
+                .font(.caption)
+                .foregroundStyle(.yellow)
+                .lineLimit(1)
+            Text(tip)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.7))
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.05)))
     }
 }
 

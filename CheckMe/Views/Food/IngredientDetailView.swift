@@ -87,24 +87,30 @@ struct IngredientDetailView: View {
         let flagBackground: Color = isTrigger ? .red : (isCaution ? .yellow : .clear)
         let flagIcon: String = isTrigger ? "xmark.octagon.fill" : "exclamationmark.triangle.fill"
 
-        return HStack(spacing: 10) {
-            if isTrigger || isCaution {
-                Image(systemName: flagIcon)
-                    .foregroundStyle(flagColor)
+        return VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 10) {
+                if isTrigger || isCaution {
+                    Image(systemName: flagIcon)
+                        .foregroundStyle(flagColor)
+                        .frame(width: 18, height: 18)
+                }
+                Text(ingredientName)
+                    .font(.title3).fontWeight(.bold)
+                    .foregroundStyle(isTrigger || isCaution ? flagColor : .white)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Text(ingredientName)
-                .font(.title3).fontWeight(.bold)
-                .foregroundStyle(isTrigger || isCaution ? flagColor : .white)
-                .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 20).padding(.vertical, 12)
         }
-        .padding(.horizontal, 20).padding(.vertical, 12)
         .background(
-            Capsule().fill(
+            RoundedRectangle(cornerRadius: 16).fill(
                 (isTrigger || isCaution) ? flagBackground.opacity(0.12) : themeManager.selectedTheme.colors.surface
             )
         )
         .overlay(
-            Capsule().stroke(
+            RoundedRectangle(cornerRadius: 16).stroke(
                 (isTrigger || isCaution) ? flagColor.opacity(0.4) : Color.white.opacity(0.1),
                 lineWidth: 1
             )

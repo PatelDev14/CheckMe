@@ -115,12 +115,14 @@ final class IngredientsViewModel {
             // 3. Filter — drop pure noise (no letters, fewer than 2 chars)
             // 4. Deduplicate — remove exact duplicates while preserving original order
             let cleanedIngredients = deduplicatedIngredients(
-                expandIngredients(productInfo.cleanedIngredients)
-                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { ingredient in
-                        ingredient.count >= 2 &&
-                        ingredient.contains(where: { $0.isLetter })
-                    }
+                extractParentheticalIngredients(
+                    expandIngredients(productInfo.cleanedIngredients)
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { ingredient in
+                            ingredient.count >= 2 &&
+                            ingredient.contains(where: { $0.isLetter })
+                        }
+                )
             )
             // Update UI with the cleaned count so the processing overlay is accurate
             partialIngredients = cleanedIngredients
@@ -259,6 +261,38 @@ final class IngredientsViewModel {
         }
     }
 
+    /// Extracts sub-ingredients from parentheses when there are 3+ distinct items.
+    /// Example:
+    ///   Input:  ["Seasoning (maltodextrin, sugar, soy protein, monosodium glutamate)"]
+    ///   Output: ["Seasoning (maltodextrin, sugar, soy protein, monosodium glutamate)", "Maltodextrin", "Sugar", "Soy Protein", "Monosodium Glutamate"]
+    ///
+    /// This handles complex ingredients where the parentheses contain a full sub-ingredient list
+    /// that should be available for individual allergy/trigger matching.
+    private func extractParentheticalIngredients(_ ingredients: [String]) -> [String] {
+        var result = ingredients
+
+        for ingredient in ingredients {
+            // Find parenthetical content
+            guard let openParen = ingredient.firstIndex(of: "("),
+                  let closeParen = ingredient.lastIndex(of: ")") else {
+                continue
+            }
+
+            let parenContent = String(ingredient[ingredient.index(after: openParen)..<closeParen])
+
+            // Split the parenthetical content by comma
+            let subItems = splitIngredientString(parenContent)
+
+            // Only extract as separate ingredients if there are 3+ sub-items
+            // (1-2 items are likely just clarifications, not full ingredient lists)
+            if subItems.count >= 3 {
+                result.append(contentsOf: subItems)
+            }
+        }
+
+        return result
+    }
+
     // MARK: - AI Steps
 
     private func extractProductInfo(from ingredientBlock: String, fullText: String) async throws -> ProductInfo {
@@ -301,10 +335,20 @@ final class IngredientsViewModel {
             – "in 2% or less of:"
         • Include vitamins and minerals listed as ingredients, e.g.:
             "Niacinamide", "Thiamin Mononitrate (Vitamin B1)", "Folic Acid"
-        • Keep parenthetical sub-ingredients attached to their parent, e.g.:
-            "Enriched Flour (Wheat Flour, Niacin, Reduced Iron, Thiamin Mononitrate)"
+
+        CRITICAL — Handle parenthetical sub-ingredients properly:
+        ──────────────────────────────────────────────────────────────────────────────
+        For ingredients with detailed sub-ingredient lists in parentheses:
+            ✓ CORRECT: Extract both the main ingredient AND individual sub-ingredients:
+              Input label: "Seasoning (maltodextrin, sugar, soy protein, monosodium glutamate)"
+              Output: ["Seasoning (maltodextrin, sugar, soy protein, monosodium glutamate)", "Maltodextrin", "Sugar", "Soy Protein", "Monosodium Glutamate"]
+            ✓ ALSO CORRECT: Simple parenthetical notes stay attached:
+              "Enriched Flour (Wheat, Niacin)" → ONE entry if the sub-items are just a short clarification
+        • Use your judgment: If parentheses contain 3+ distinct sub-ingredients, extract them individually.
+        • If parentheses contain only 1-2 clarification items, keep them attached.
+
         • OCR sometimes splits a single ingredient across two lines — join them logically.
-        • Each top-level item in the comma-separated list is one array entry.
+        • Each top-level item (comma-separated at the top level, OUTSIDE parentheses) is one array entry.
         • Strip: percentages (2%), asterisks (*), daggers (†), footnote symbols, bare numbers.
         • Do NOT include items from:
             – Nutrition Facts / Valeur Nutritive panel
