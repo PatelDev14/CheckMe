@@ -10,22 +10,25 @@ import Foundation
 // Note: rename this file to HealthCategory.swift in Xcode.
 
 enum HealthCategory: String, CaseIterable, Codable, Identifiable {
-    case food = "Food"
-    case skin = "Skin"
+    case food      = "Food"
+    case skin      = "Skin"
+    case nutrition = "Nutrition"
 
     var id: String { rawValue }
 
     var systemImage: String {
         switch self {
-        case .food: "fork.knife"
-        case .skin: "sparkles"
+        case .food:      return "fork.knife"
+        case .skin:      return "sparkles"
+        case .nutrition: return "chart.pie.fill"
         }
     }
 
     var scanPromptLabel: String {
         switch self {
-        case .food: "food label"
-        case .skin: "skincare label"
+        case .food:      return "food label"
+        case .skin:      return "skincare label"
+        case .nutrition: return "nutrition facts panel"
         }
     }
 }

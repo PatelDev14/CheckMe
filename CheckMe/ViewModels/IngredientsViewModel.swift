@@ -162,6 +162,7 @@ final class IngredientsViewModel {
                 digestionProcess: summary.digestionProcess,
                 complexity: summary.complexity
             )
+            scan.capturedImagePath = saveCapturedImage(image)
             modelContext.insert(scan)
             try modelContext.save()
 
@@ -171,6 +172,16 @@ final class IngredientsViewModel {
         } catch {
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    private func saveCapturedImage(_ image: UIImage) -> String? {
+        guard let data = image.jpegData(compressionQuality: 0.82) else { return nil }
+        let filename = "scan_\(UUID().uuidString).jpg"
+        let url = FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(filename)
+        try? data.write(to: url)
+        return filename
     }
 
     func reset() {

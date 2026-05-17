@@ -21,6 +21,10 @@ struct IngredientsListView: View {
     @State private var showEditSheet = false
     @State private var reanalysisError: String?
     @State private var ingredientViewMode: IngredientViewMode = .list
+    @State private var editedName: String = ""
+    @State private var isEditingName = false
+    @State private var showingPhoto = false
+    @FocusState private var nameFocused: Bool
 
     private enum IngredientViewMode: String, CaseIterable {
         case list      = "List"
@@ -37,8 +41,11 @@ struct IngredientsListView: View {
                 VStack(spacing: 0) {
                     // Gradient header
                     headerSection
+                        .onTapGesture { if isEditingName { commitName() } }
 
                     VStack(spacing: 16) {
+                        capturedPhotoCard
+
                         // Main gut prediction card
                         gutPredictionCard
 
@@ -61,9 +68,14 @@ struct IngredientsListView: View {
                 reanalyzeBanner
             }
         }
+        .scrollDismissesKeyboard(.immediately)
         .navigationTitle(scan.itemName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbarContent }
+        .onAppear { editedName = scan.itemName }
+        .onChange(of: nameFocused) { _, focused in
+            if !focused && isEditingName { commitName() }
+        }
         .sheet(isPresented: $showEditSheet) {
             EditIngredientsSheet(ingredients: scan.ingredients) { updatedIngredients in
                 scan.ingredients = updatedIngredients
@@ -73,6 +85,63 @@ struct IngredientsListView: View {
             }
             .environment(themeManager)
         }
+    }
+
+    // MARK: - Captured Photo
+
+    @ViewBuilder
+    private var capturedPhotoCard: some View {
+        if let path = scan.capturedImagePath,
+           let image = loadImage(path) {
+            Button { showingPhoto = true } label: {
+                HStack(spacing: 12) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 60, height: 60)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("View Scanned Label")
+                            .font(.subheadline).fontWeight(.semibold)
+                            .foregroundStyle(.white)
+                        Text("Tap to see the original photo")
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption).foregroundStyle(.white.opacity(0.3))
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.surface))
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $showingPhoto) {
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .ignoresSafeArea()
+                }
+                .overlay(alignment: .topTrailing) {
+                    Button { showingPhoto = false } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .padding(20)
+                    }
+                }
+            }
+        }
+    }
+
+    private func loadImage(_ filename: String) -> UIImage? {
+        let url = FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(filename)
+        return UIImage(contentsOfFile: url.path)
     }
 
     // MARK: - Header
@@ -90,10 +159,39 @@ struct IngredientsListView: View {
             .frame(height: 160)
 
             VStack(spacing: 4) {
-                Text(scan.itemName)
-                    .font(.title2).fontWeight(.bold)
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
+                if isEditingName {
+                    HStack(spacing: 6) {
+                        TextField("Product name", text: $editedName)
+                            .font(.title2).fontWeight(.bold)
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                            .focused($nameFocused)
+                            .onSubmit { commitName() }
+                        if !editedName.isEmpty {
+                            Button { editedName = "" } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.white.opacity(0.6))
+                                    .font(.body)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                } else {
+                    HStack(spacing: 6) {
+                        Text(scan.itemName)
+                            .font(.title2).fontWeight(.bold)
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                        Image(systemName: "pencil")
+                            .font(.caption).foregroundStyle(.white.opacity(0.45))
+                    }
+                    .onTapGesture {
+                        editedName = scan.itemName
+                        isEditingName = true
+                        nameFocused = true
+                    }
+                }
                 Text("\(scan.ingredientCount) ingredients · \(scan.dateSaved.shortDisplay)")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.6))
@@ -495,6 +593,21 @@ struct IngredientsListView: View {
             y = pageBottom - 8
             draw("Generated by CheckMe · \(scan.dateSaved.shortDisplay)", x: margin, font: UIFont.systemFont(ofSize: 9), color: faintInk)
         }
+    }
+
+    private func commitName() {
+        let trimmed = editedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            scan.itemName = trimmed
+            editedName = trimmed
+            do {
+                try modelContext.save()
+            } catch {
+                scan.itemName = editedName
+            }
+        }
+        isEditingName = false
+        nameFocused = false
     }
 
     private func deleteScan() {

@@ -1,9 +1,9 @@
 import SwiftUI
 import SwiftData
 
-struct SkinScanView: View {
+struct NutritionScanView: View {
     @Query(
-        filter: #Predicate<ScanModel> { $0.category == "Skin" },
+        filter: #Predicate<ScanModel> { $0.category == "Nutrition" },
         sort: \ScanModel.dateSaved,
         order: .reverse
     )
@@ -21,12 +21,11 @@ struct SkinScanView: View {
     @State private var selectedIDs: Set<PersistentIdentifier> = []
     @State private var showBulkDeleteConfirm = false
 
+    private let accentColor = Color(red: 0.55, green: 0.45, blue: 0.95)
+
     private var filteredScans: [ScanModel] {
         guard !searchText.isEmpty else { return scans }
-        return scans.filter { scan in
-            scan.itemName.localizedCaseInsensitiveContains(searchText) ||
-            scan.ingredients.contains { $0.localizedCaseInsensitiveContains(searchText) }
-        }
+        return scans.filter { $0.itemName.localizedCaseInsensitiveContains(searchText) }
     }
 
     var body: some View {
@@ -40,8 +39,8 @@ struct SkinScanView: View {
 
                 if isSelectMode { selectModeBar } else { scanFAB }
             }
-            .navigationTitle("Personal Care")
-            .searchable(text: $searchText, prompt: "Search scans or ingredients")
+            .navigationTitle("Nutrition")
+            .searchable(text: $searchText, prompt: "Search scans")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     if !scans.isEmpty {
@@ -56,10 +55,10 @@ struct SkinScanView: View {
                 }
             }
             .navigationDestination(isPresented: $navigateToLastScan) {
-                if let scan = lastScannedScan { SkinResultsView(scan: scan) }
+                if let scan = lastScannedScan { NutritionResultsView(scan: scan) }
             }
             .fullScreenCover(isPresented: $showCamera) {
-                SkinCameraView { completedScan in
+                NutritionCameraView { completedScan in
                     lastScannedScan = completedScan
                     navigateToLastScan = true
                 }
@@ -105,12 +104,12 @@ struct SkinScanView: View {
                                     else { selectedIDs.insert(scan.persistentModelID) }
                                 }
                             } label: {
-                                SkinHistoryCard(scan: scan, isSelected: isSelected, isSelectMode: true)
+                                NutritionHistoryCard(scan: scan, isSelected: isSelected, isSelectMode: true)
                             }
                             .buttonStyle(.plain)
                         } else {
-                            NavigationLink(destination: SkinResultsView(scan: scan)) {
-                                SkinHistoryCard(scan: scan)
+                            NavigationLink(destination: NutritionResultsView(scan: scan)) {
+                                NutritionHistoryCard(scan: scan)
                             }
                             .buttonStyle(.plain)
                             .contextMenu {
@@ -172,32 +171,35 @@ struct SkinScanView: View {
 
     private var statsRow: some View {
         HStack(spacing: 12) {
-            StatChipSkin(value: "\(scans.count)", label: "Scans", icon: "camera.viewfinder", color: themeManager.selectedTheme.colors.accent)
-            StatChipSkin(value: "\(friendlyCount)", label: "Compatible", icon: "leaf.fill", color: .green)
-            StatChipSkin(value: "\(concernCount)", label: "High Concern", icon: "xmark.octagon.fill", color: .red)
+            NutritionStatChip(value: "\(scans.count)", label: "Scans", icon: "camera.viewfinder", color: accentColor)
+            NutritionStatChip(value: avgCaloriesText, label: "Avg Calories", icon: "flame.fill", color: .orange)
+            NutritionStatChip(value: "\(highSodiumCount)", label: "High Sodium", icon: "drop.fill", color: .yellow)
         }
     }
 
-    private var friendlyCount: Int {
-        scans.filter { $0.skinPrediction?.rating.lowercased().contains("skin friendly") == true }.count
+    private var avgCaloriesText: String {
+        let withData = scans.compactMap { $0.nutritionFacts?.calories }.filter { $0 > 0 }
+        guard !withData.isEmpty else { return "—" }
+        return "\(Int(withData.reduce(0, +) / Double(withData.count)))"
     }
 
-    private var concernCount: Int {
-        scans.filter { $0.skinPrediction?.rating.lowercased().contains("high concern") == true }.count
+    private var highSodiumCount: Int {
+        // High sodium = > 30% of daily value (690mg)
+        scans.filter { ($0.nutritionFacts?.sodiumMg ?? 0) > 690 }.count
     }
 
-    // MARK: - Empty State
+    // MARK: - Empty States
 
     private var emptyState: some View {
         VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "sparkles")
+            Image(systemName: "chart.pie.fill")
                 .font(.system(size: 64))
-                .foregroundStyle(themeManager.selectedTheme.colors.accent.opacity(0.7))
+                .foregroundStyle(accentColor.opacity(0.7))
             VStack(spacing: 8) {
-                Text("No Personal Care Scans Yet")
+                Text("No Nutrition Scans Yet")
                     .font(.title2).fontWeight(.bold).foregroundStyle(.white)
-                Text("Scan any personal care label — skincare, haircare, cosmetics — to check if it suits your profile.")
+                Text("Scan a Nutrition Facts panel to see animated macro breakdowns.")
                     .font(.subheadline).foregroundStyle(.white.opacity(0.6))
                     .multilineTextAlignment(.center)
             }
@@ -209,13 +211,10 @@ struct SkinScanView: View {
 
     private var noResultsView: some View {
         VStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
-                .font(.title).foregroundStyle(.white.opacity(0.4))
-            Text("No results for \(searchText)")
-                .font(.subheadline).foregroundStyle(.white.opacity(0.5))
+            Image(systemName: "magnifyingglass").font(.title).foregroundStyle(.white.opacity(0.4))
+            Text("No results for \(searchText)").font(.subheadline).foregroundStyle(.white.opacity(0.5))
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 60)
+        .frame(maxWidth: .infinity).padding(.top, 60)
     }
 
     // MARK: - FAB
@@ -224,14 +223,14 @@ struct SkinScanView: View {
         Button { showCamera = true } label: {
             HStack(spacing: 10) {
                 Image(systemName: "camera.viewfinder").font(.headline)
-                Text("Scan Label").font(.headline).fontWeight(.bold)
+                Text("Scan Nutrition Label").font(.headline).fontWeight(.bold)
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 28).padding(.vertical, 16)
             .background(
                 Capsule()
-                    .fill(themeManager.selectedTheme.colors.accent)
-                    .shadow(color: themeManager.selectedTheme.colors.accent.opacity(0.5), radius: 12, y: 4)
+                    .fill(accentColor)
+                    .shadow(color: accentColor.opacity(0.5), radius: 12, y: 4)
             )
         }
         .padding(.bottom, 24)
@@ -256,23 +255,15 @@ struct SkinScanView: View {
     }
 }
 
-// MARK: - Skin History Card
+// MARK: - History Card
 
-struct SkinHistoryCard: View {
+struct NutritionHistoryCard: View {
     let scan: ScanModel
     var isSelected: Bool = false
     var isSelectMode: Bool = false
     @Environment(ThemeManager.self) private var themeManager
 
-    private var rating: (label: String, color: Color, icon: String) {
-        guard let r = scan.skinPrediction?.rating.lowercased() else {
-            return ("Not analysed", .gray, "questionmark.circle.fill")
-        }
-        if r.contains("skin friendly")    { return ("Compatible",       .green,  "leaf.fill") }
-        if r.contains("moderate concern") { return ("Moderate Concern", .orange, "exclamationmark.triangle.fill") }
-        if r.contains("high concern")     { return ("High Concern",     .red,    "xmark.octagon.fill") }
-        return ("Not analysed", .gray, "questionmark.circle.fill")
-    }
+    private let accentColor = Color(red: 0.55, green: 0.45, blue: 0.95)
 
     var body: some View {
         HStack(spacing: 14) {
@@ -284,18 +275,23 @@ struct SkinHistoryCard: View {
             }
 
             ZStack {
-                Circle().fill(rating.color.opacity(0.15)).frame(width: 48, height: 48)
-                Image(systemName: rating.icon).foregroundStyle(rating.color).font(.title3)
+                Circle().fill(accentColor.opacity(0.15)).frame(width: 48, height: 48)
+                Image(systemName: "chart.pie.fill").foregroundStyle(accentColor).font(.title3)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(scan.itemName)
                     .font(.subheadline).fontWeight(.semibold).foregroundStyle(.white).lineLimit(1)
                 HStack(spacing: 6) {
-                    Text(rating.label).font(.caption).fontWeight(.medium).foregroundStyle(rating.color)
-                    Text("·").foregroundStyle(.white.opacity(0.3))
-                    Text("\(scan.ingredientCount) ingredients").font(.caption).foregroundStyle(.white.opacity(0.5))
-                    Text("·").foregroundStyle(.white.opacity(0.3))
+                    if let cal = scan.nutritionFacts?.calories, cal > 0 {
+                        Label("\(Int(cal)) cal", systemImage: "flame.fill")
+                            .font(.caption).foregroundStyle(.orange)
+                        Text("·").foregroundStyle(.white.opacity(0.3))
+                    }
+                    if let fat = scan.nutritionFacts?.totalFatG {
+                        Text("\(Int(fat))g fat").font(.caption).foregroundStyle(.white.opacity(0.5))
+                        Text("·").foregroundStyle(.white.opacity(0.3))
+                    }
                     Text(scan.dateSaved.dayDisplay).font(.caption).foregroundStyle(.white.opacity(0.5))
                 }
             }
@@ -319,7 +315,7 @@ struct SkinHistoryCard: View {
 
 // MARK: - Stat Chip
 
-private struct StatChipSkin: View {
+private struct NutritionStatChip: View {
     let value: String
     let label: String
     let icon: String
@@ -336,12 +332,4 @@ private struct StatChipSkin: View {
         .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(0.08)))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(color.opacity(0.15), lineWidth: 1))
     }
-}
-
-#Preview {
-    SkinScanView()
-        .modelContainer(for: [ScanModel.self, SkinIngredientModel.self], inMemory: true)
-        .environment(FoundationModelsManager())
-        .environment(UserProfileStore())
-        .environment(ThemeManager())
 }
