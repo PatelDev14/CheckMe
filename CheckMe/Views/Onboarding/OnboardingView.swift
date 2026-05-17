@@ -131,7 +131,7 @@ private struct WelcomeStep: View {
 
     var body: some View {
         OnboardingStepContainer {
-            Image(systemName: "checklist.checked")
+            Image(systemName: "checklist")
                 .font(.system(size: 68))
                 .foregroundStyle(.white)
                 .symbolEffect(.pulse)

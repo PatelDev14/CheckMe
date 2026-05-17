@@ -1,10 +1,3 @@
-//
-//  FoundationModelsManager.swift
-//  CheckMe
-//
-//  Created by Dev Patel on 2026-05-16.
-//
-
 import Foundation
 import FoundationModels
 
