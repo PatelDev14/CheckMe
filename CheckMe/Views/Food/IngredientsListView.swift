@@ -20,6 +20,13 @@ struct IngredientsListView: View {
     @State private var showShareSheet = false
     @State private var showEditSheet = false
     @State private var reanalysisError: String?
+    @State private var ingredientViewMode: IngredientViewMode = .list
+
+    private enum IngredientViewMode: String, CaseIterable {
+        case list      = "List"
+        case breakdown = "Breakdown"
+        var icon: String { self == .list ? "list.bullet" : "chart.bar.fill" }
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -204,11 +211,44 @@ struct IngredientsListView: View {
 
     private var ingredientsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            // Header with count + List/Breakdown toggle
+            HStack(spacing: 10) {
                 Text("Ingredients")
                     .font(.headline).fontWeight(.bold)
                     .foregroundStyle(.white)
+
                 Spacer()
+
+                // Segment toggle
+                HStack(spacing: 0) {
+                    ForEach(IngredientViewMode.allCases, id: \.self) { mode in
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                ingredientViewMode = mode
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: mode.icon)
+                                    .font(.caption2)
+                                Text(mode.rawValue)
+                                    .font(.caption2).fontWeight(.medium)
+                            }
+                            .foregroundStyle(ingredientViewMode == mode ? .black : .white.opacity(0.5))
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .background(
+                                Capsule().fill(
+                                    ingredientViewMode == mode
+                                        ? themeManager.selectedTheme.colors.accent
+                                        : Color.clear
+                                )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(3)
+                .background(Capsule().fill(.white.opacity(0.08)))
+
                 Text("\(scan.ingredientCount)")
                     .font(.caption).fontWeight(.semibold)
                     .foregroundStyle(.white.opacity(0.5))
@@ -216,17 +256,27 @@ struct IngredientsListView: View {
                     .background(Capsule().fill(.white.opacity(0.1)))
             }
 
-            // Each ingredient is a navigation link to IngredientDetailView
-            LazyVStack(spacing: 8) {
-                ForEach(scan.ingredients, id: \.self) { ingredient in
-                    NavigationLink(destination: IngredientDetailView(ingredientName: ingredient, scan: scan)) {
-                        IngredientRow(
-                            name: ingredient,
-                            triggers: scan.gutPrediction?.triggers ?? [],
-                            cautions: scan.gutPrediction?.cautions ?? []
-                        )
+            // Content switches between flat list and animated breakdown
+            if ingredientViewMode == .list {
+                LazyVStack(spacing: 8) {
+                    ForEach(scan.ingredients, id: \.self) { ingredient in
+                        NavigationLink(destination: IngredientDetailView(ingredientName: ingredient, scan: scan)) {
+                            IngredientRow(
+                                name: ingredient,
+                                triggers: scan.gutPrediction?.triggers ?? [],
+                                cautions: scan.gutPrediction?.cautions ?? []
+                            )
+                        }
                     }
                 }
+                .transition(.opacity)
+            } else {
+                AnimatedIngredientBreakdownView(
+                    scan: scan,
+                    triggers: scan.gutPrediction?.triggers ?? [],
+                    cautions: scan.gutPrediction?.cautions ?? []
+                )
+                .transition(.opacity)
             }
         }
     }
