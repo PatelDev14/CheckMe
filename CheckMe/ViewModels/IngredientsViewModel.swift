@@ -103,7 +103,8 @@ final class IngredientsViewModel {
             phase = .extractingProduct
             print("[IngredientsViewModel] Starting AI product extraction...")
             let productInfo = try await extractProductInfo(from: ingredientBlock, fullText: rawText)
-            partialProductName = productInfo.productName
+            let validatedName = validateProductName(productInfo.productName, against: rawText)
+            partialProductName = validatedName
             partialIngredients = productInfo.cleanedIngredients
 
             print("[IngredientsViewModel] AI extraction complete: \(productInfo.productName), \(productInfo.cleanedIngredients.count) ingredients")
@@ -149,8 +150,7 @@ final class IngredientsViewModel {
             )
 
             // Step 5: Persist to SwiftData
-            // Normalise product name — treat empty string same as "Unknown Product"
-            let itemName = productInfo.productName.trimmingCharacters(in: .whitespaces)
+            let itemName = validatedName
             let scan = ScanModel(
                 itemName: itemName.isEmpty ? "Unknown Product" : itemName,
                 ingredients: cleanedIngredients,
@@ -181,6 +181,27 @@ final class IngredientsViewModel {
     }
 
     // MARK: - Helpers
+
+    /// Cross-checks the AI's returned product name against the raw OCR text.
+    /// If fewer than 1/3 of the substantive words from the name appear in the OCR text,
+    /// the model likely hallucinated the name — returns "Unknown Product" instead.
+    private func validateProductName(_ name: String, against ocrText: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, trimmed != "Unknown Product" else { return "Unknown Product" }
+
+        let stopWords: Set<String> = ["the", "and", "with", "for", "by", "of", "in"]
+        let nameWords = trimmed
+            .components(separatedBy: .whitespacesAndNewlines)
+            .map { $0.trimmingCharacters(in: .punctuationCharacters).lowercased() }
+            .filter { $0.count >= 3 && !stopWords.contains($0) }
+
+        guard !nameWords.isEmpty else { return trimmed }
+
+        let ocrLower = ocrText.lowercased()
+        let matchCount = nameWords.filter { ocrLower.contains($0) }.count
+        let requiredMatches = max(1, nameWords.count / 3)
+        return matchCount >= requiredMatches ? trimmed : "Unknown Product"
+    }
 
     /// Splits a single ingredient string into individual ingredients at top-level commas,
     /// respecting parentheses and brackets so sub-ingredients stay attached to their parent.
@@ -322,12 +343,15 @@ final class IngredientsViewModel {
         PRODUCT NAME
         ────────────
         • Use ONLY text that explicitly identifies the product's brand and name on the label.
+        • VERIFICATION STEP: Before returning the product name, check that each word you include actually appears somewhere in the OCR text provided. If you cannot verify the name against the text, return exactly: Unknown Product
         • If no clear product name is visible, return exactly: Unknown Product
-        • NEVER guess, infer, or fabricate a name from ingredients or prior knowledge.
+        • NEVER guess, infer, or fabricate a name from ingredients, prior knowledge, or brand recognition.
         • NEVER use an ingredient name or food category as the product name.
 
-        INGREDIENTS — completeness is the top priority
-        ───────────────────────────────────────────────
+        INGREDIENTS — completeness and ORDER are the top priorities
+        ────────────────────────────────────────────────────────────
+        • CRITICAL ORDER RULE: Return all ingredients in the EXACT ORDER they appear on the label, first to last. Do NOT sort alphabetically, group by type, or reorder in any way.
+
         • Extract EVERY ingredient listed, including those after phrases like:
             – "and less than 2% of:"    (include everything that follows)
             – "contains less than 2% of:"

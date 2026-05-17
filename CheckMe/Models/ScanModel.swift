@@ -27,6 +27,9 @@ class ScanModel: Identifiable {
     @Relationship(deleteRule: .cascade)
     var gutPrediction: SavedGutPrediction?
 
+    @Relationship(deleteRule: .cascade)
+    var skinPrediction: SavedSkinPrediction?
+
     init(itemName: String, ingredients: [String], category: HealthCategory = .food) {
         self.itemName = itemName
         self.ingredients = ingredients
@@ -134,5 +137,71 @@ struct GutPrediction {
     var cautions: [String]
 
     @Guide(description: "One actionable tip for consuming this product safely. Keep it brief and practical.")
+    var tip: String
+}
+
+// MARK: - Skin Prediction (Persisted)
+
+@Model
+class SavedSkinPrediction {
+    var rating: String          // "Skin Friendly" | "Moderate Concern" | "High Concern"
+    var summary: String
+    var irritants: [String]     // red — avoid for this user's skin
+    var cautions: [String]      // yellow — mild concerns
+    var tip: String
+    var timestamp: Date
+
+    init(from prediction: SkinPrediction) {
+        self.rating = prediction.rating
+        self.summary = prediction.summary
+        self.irritants = prediction.irritants
+        self.cautions = prediction.cautions
+        self.tip = prediction.tip
+        self.timestamp = Date.now
+    }
+}
+
+// MARK: - Skin Foundation Models Generable Types
+
+@Generable
+struct SkinProductInfo {
+    @Guide(description: """
+        The product name and brand, extracted ONLY from text that explicitly identifies the product on the label. \
+        Example: 'CeraVe Moisturising Cream'. \
+        STRICT RULES: \
+        (1) If no product name or brand is visible, return exactly the string 'Unknown Product'. \
+        (2) Never guess, infer, or fabricate a name from ingredients. \
+        (3) Never use an ingredient name as the product name. \
+        (4) If unsure, return 'Unknown Product'.
+        """)
+    var productName: String
+
+    @Guide(description: """
+        A flat list where EACH ELEMENT IS EXACTLY ONE INGREDIENT. \
+        CRITICAL RULES for sub-ingredients in parentheses: \
+        ✓ CORRECT: 'Cetearyl Alcohol (and) Ceteareth-20' is ONE entry \
+        ✗ WRONG: Splitting any ingredient that has a parenthetical sub-ingredient list. \
+        Split ONLY at top-level commas (outside parentheses). Keep everything in parentheses attached. \
+        Remove percentages, symbols, asterisks, and OCR noise. \
+        Return an empty array only if no ingredient list is present in the text.
+        """)
+    var cleanedIngredients: [String]
+}
+
+@Generable
+struct SkinPrediction {
+    @Guide(description: "Use EXACTLY one of: 'Skin Friendly', 'Moderate Concern', or 'High Concern'. Follow with one sentence explaining why.")
+    var rating: String
+
+    @Guide(description: "1-2 sentence overview of this product's skin compatibility for this user.")
+    var summary: String
+
+    @Guide(description: "Ingredients the user should AVOID based on their skin profile (irritants, allergens, known triggers for their conditions). Max 5. Empty array if none.")
+    var irritants: [String]
+
+    @Guide(description: "Mild skin concerns — comedogenic ingredients, synthetic fragrance, alcohol, common sensitizers. Not dangerous but worth noting. Max 5. Empty array if none.")
+    var cautions: [String]
+
+    @Guide(description: "One practical skincare tip for using products with this ingredient profile.")
     var tip: String
 }

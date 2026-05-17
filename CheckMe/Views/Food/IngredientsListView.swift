@@ -18,6 +18,7 @@ struct IngredientsListView: View {
     @State private var showSummary = false
     @State private var isReanalyzing = false
     @State private var showShareSheet = false
+    @State private var showEditSheet = false
     @State private var reanalysisError: String?
 
     var body: some View {
@@ -56,6 +57,15 @@ struct IngredientsListView: View {
         .navigationTitle(scan.itemName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbarContent }
+        .sheet(isPresented: $showEditSheet) {
+            EditIngredientsSheet(ingredients: scan.ingredients) { updatedIngredients in
+                scan.ingredients = updatedIngredients
+                scan.ingredientCount = updatedIngredients.count
+                try? modelContext.save()
+                Task { await reanalyze() }
+            }
+            .environment(themeManager)
+        }
     }
 
     // MARK: - Header
@@ -233,6 +243,11 @@ struct IngredientsListView: View {
                     Label("Re-analyse with current profile", systemImage: "arrow.clockwise")
                 }
                 Button {
+                    showEditSheet = true
+                } label: {
+                    Label("Edit Ingredients", systemImage: "pencil")
+                }
+                Button {
                     shareText()
                 } label: {
                     Label("Share Results", systemImage: "square.and.arrow.up")
@@ -304,116 +319,132 @@ struct IngredientsListView: View {
     }
 
     private func generatePDF() -> Data {
-        let pdfWidth: CGFloat = 612   // 8.5 inches at 72 DPI
-        let pdfHeight: CGFloat = 792  // 11 inches at 72 DPI
-        let margin: CGFloat = 40
+        let pdfWidth: CGFloat = 612
+        let pdfHeight: CGFloat = 792
+        let margin: CGFloat = 48
         let contentWidth = pdfWidth - (margin * 2)
-        let pageBottom = pdfHeight - margin  // usable bottom boundary
+        let pageBottom = pdfHeight - margin
+
+        // Colors — dark text on white background so the PDF is actually readable
+        let ink       = UIColor(white: 0.10, alpha: 1)
+        let subInk    = UIColor(white: 0.35, alpha: 1)
+        let faintInk  = UIColor(white: 0.55, alpha: 1)
+        let divider   = UIColor(white: 0.85, alpha: 1)
+
+        let gut = scan.gutPrediction
+        let ratingColor: UIColor = {
+            let p = gut?.prediction.lowercased() ?? ""
+            if p.contains("gut friendly")  { return UIColor(red: 0.18, green: 0.70, blue: 0.34, alpha: 1) }
+            if p.contains("moderate risk") { return UIColor(red: 0.95, green: 0.55, blue: 0.10, alpha: 1) }
+            if p.contains("high risk")     { return UIColor(red: 0.90, green: 0.23, blue: 0.23, alpha: 1) }
+            return UIColor(white: 0.5, alpha: 1)
+        }()
 
         let pdfRenderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: pdfWidth, height: pdfHeight))
 
-        let data = pdfRenderer.pdfData { context in
+        return pdfRenderer.pdfData { ctx in
             var y: CGFloat = margin
-            context.beginPage()
+            ctx.beginPage()
 
-            // Helper: start a new page and reset y if the next block won't fit
             func ensureSpace(_ needed: CGFloat) {
                 if y + needed > pageBottom {
-                    context.beginPage()
+                    ctx.beginPage()
                     y = margin
                 }
             }
 
-            // Helper: draw text that can span multiple lines and returns the actual height used
             @discardableResult
-            func drawText(_ text: String, at xPos: CGFloat, font: UIFont, color: UIColor, maxHeight: CGFloat = 500) -> CGFloat {
+            func draw(_ text: String, x xPos: CGFloat, font: UIFont, color: UIColor, maxH: CGFloat = 600) -> CGFloat {
                 let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
-                let rect = CGRect(x: xPos, y: y, width: contentWidth - (xPos - margin), height: maxHeight)
-                let boundingRect = (text as NSString).boundingRect(
-                    with: CGSize(width: rect.width, height: maxHeight),
+                let w = contentWidth - (xPos - margin)
+                let br = (text as NSString).boundingRect(
+                    with: CGSize(width: w, height: maxH),
                     options: [.usesLineFragmentOrigin, .usesFontLeading],
                     attributes: attrs, context: nil
                 )
-                let usedHeight = ceil(boundingRect.height) + 4
-                ensureSpace(usedHeight)
-                (text as NSString).draw(in: CGRect(x: xPos, y: y, width: rect.width, height: usedHeight), withAttributes: attrs)
-                return usedHeight
+                let h = ceil(br.height) + 2
+                ensureSpace(h)
+                (text as NSString).draw(in: CGRect(x: xPos, y: y, width: w, height: h), withAttributes: attrs)
+                return h
             }
 
-            // Helper: draw a section label
-            func drawSection(_ label: String, color: UIColor = .white) {
-                ensureSpace(22)
-                drawText(label, at: margin, font: UIFont.boldSystemFont(ofSize: 13), color: color)
-                y += 20
+            func drawDivider() {
+                ensureSpace(12)
+                let path = UIBezierPath()
+                path.move(to: CGPoint(x: margin, y: y + 6))
+                path.addLine(to: CGPoint(x: pdfWidth - margin, y: y + 6))
+                divider.setStroke()
+                path.lineWidth = 0.5
+                path.stroke()
+                y += 12
             }
 
-            // ── Title ────────────────────────────────────────────────
-            let titleHeight = drawText("CheckMe Scan Report", at: margin, font: UIFont.boldSystemFont(ofSize: 20), color: .white)
-            y += titleHeight + 4
+            func drawSectionHeader(_ text: String) {
+                ensureSpace(30)
+                y += 8
+                let h = draw(text, x: margin, font: UIFont.boldSystemFont(ofSize: 11), color: faintInk)
+                y += h + 4
+                drawDivider()
+            }
 
-            let nameHeight = drawText(scan.itemName, at: margin, font: UIFont.boldSystemFont(ofSize: 15), color: .white)
-            y += nameHeight + 2
+            // ── App header ─────────────────────────────────────────
+            y += draw("CheckMe", x: margin, font: UIFont.boldSystemFont(ofSize: 11), color: faintInk) + 2
+            y += draw(scan.itemName, x: margin, font: UIFont.boldSystemFont(ofSize: 22), color: ink) + 2
+            y += draw("Food · Scanned \(scan.dateSaved.shortDisplay)", x: margin, font: UIFont.systemFont(ofSize: 11), color: faintInk) + 4
+            drawDivider()
+            y += 4
 
-            let dateHeight = drawText("Scanned: \(scan.dateSaved.shortDisplay)", at: margin, font: UIFont.systemFont(ofSize: 11), color: .lightGray)
-            y += dateHeight + 16
+            // ── Gut rating pill ─────────────────────────────────────
+            if let gut {
+                let ratingText = GutRating(from: gut.prediction).label
+                let pillFont = UIFont.boldSystemFont(ofSize: 13)
+                let pillAttrs: [NSAttributedString.Key: Any] = [.font: pillFont, .foregroundColor: UIColor.white]
+                let pillSize = (ratingText as NSString).size(withAttributes: pillAttrs)
+                let pillPadH: CGFloat = 14, pillPadV: CGFloat = 6
+                let pillW = pillSize.width + pillPadH * 2
+                let pillH = pillSize.height + pillPadV * 2
+                ensureSpace(pillH + 10)
+                let pillRect = CGRect(x: margin, y: y, width: pillW, height: pillH)
+                let pillPath = UIBezierPath(roundedRect: pillRect, cornerRadius: pillH / 2)
+                ratingColor.setFill(); pillPath.fill()
+                (ratingText as NSString).draw(at: CGPoint(x: margin + pillPadH, y: y + pillPadV), withAttributes: pillAttrs)
+                y += pillH + 10
 
-            // ── Gut Prediction ───────────────────────────────────────
-            if let gut = scan.gutPrediction {
-                drawSection("GUT PREDICTION")
-
-                let predHeight = drawText(gut.prediction, at: margin, font: UIFont.systemFont(ofSize: 12), color: .white)
-                y += predHeight + 8
+                y += draw(gut.prediction, x: margin, font: UIFont.systemFont(ofSize: 12), color: subInk) + 10
 
                 if !gut.triggers.isEmpty {
-                    ensureSpace(40)
-                    drawText("AVOID:", at: margin, font: UIFont.boldSystemFont(ofSize: 12), color: UIColor(red: 1, green: 0.3, blue: 0.3, alpha: 1))
-                    y += 16
-                    let triggerHeight = drawText(gut.triggers.joined(separator: " · "), at: margin + 8, font: UIFont.systemFont(ofSize: 11), color: .white)
-                    y += triggerHeight + 8
+                    y += draw("AVOID FOR YOU", x: margin, font: UIFont.boldSystemFont(ofSize: 10), color: UIColor(red: 0.85, green: 0.2, blue: 0.2, alpha: 1)) + 4
+                    y += draw(gut.triggers.map { "• \($0)" }.joined(separator: "\n"), x: margin + 8, font: UIFont.systemFont(ofSize: 11), color: subInk) + 8
                 }
-
                 if !gut.cautions.isEmpty {
-                    ensureSpace(40)
-                    drawText("WATCH:", at: margin, font: UIFont.boldSystemFont(ofSize: 12), color: UIColor(red: 1, green: 0.8, blue: 0.2, alpha: 1))
-                    y += 16
-                    let cautionHeight = drawText(gut.cautions.joined(separator: " · "), at: margin + 8, font: UIFont.systemFont(ofSize: 11), color: .white)
-                    y += cautionHeight + 8
+                    y += draw("WATCH", x: margin, font: UIFont.boldSystemFont(ofSize: 10), color: UIColor(red: 0.80, green: 0.50, blue: 0.10, alpha: 1)) + 4
+                    y += draw(gut.cautions.map { "• \($0)" }.joined(separator: "\n"), x: margin + 8, font: UIFont.systemFont(ofSize: 11), color: subInk) + 8
                 }
-
-                ensureSpace(40)
-                drawText("TIP:", at: margin, font: UIFont.boldSystemFont(ofSize: 12), color: UIColor(red: 1, green: 0.84, blue: 0, alpha: 1))
-                y += 16
-                let tipHeight = drawText(gut.tip, at: margin + 8, font: UIFont.systemFont(ofSize: 11), color: .lightGray)
-                y += tipHeight + 16
+                y += draw("TIP  \(gut.tip)", x: margin, font: UIFont.italicSystemFont(ofSize: 11), color: faintInk) + 8
             }
 
-            // ── Summary ──────────────────────────────────────────────
-            if let summary = scan.summary {
-                drawSection("SUMMARY")
-
-                let overviewH = drawText("Overview: \(summary.overview)", at: margin, font: UIFont.systemFont(ofSize: 11), color: .lightGray)
-                y += overviewH + 6
-
-                let digestionH = drawText("Digestion: \(summary.digestionProcess)", at: margin, font: UIFont.systemFont(ofSize: 11), color: .lightGray)
-                y += digestionH + 6
-
-                let complexH = drawText("Complexity: \(summary.complexity)", at: margin, font: UIFont.systemFont(ofSize: 11), color: .lightGray)
-                y += complexH + 16
+            // ── Summary ─────────────────────────────────────────────
+            if let s = scan.summary {
+                drawSectionHeader("PRODUCT SUMMARY")
+                y += draw(s.overview, x: margin, font: UIFont.systemFont(ofSize: 11), color: subInk) + 6
+                y += draw("Digestion: \(s.digestionProcess)", x: margin, font: UIFont.systemFont(ofSize: 11), color: subInk) + 6
+                y += draw("Complexity: \(s.complexity)", x: margin, font: UIFont.systemFont(ofSize: 11), color: subInk) + 6
             }
 
             // ── Ingredients ──────────────────────────────────────────
-            drawSection("INGREDIENTS (\(scan.ingredientCount))")
+            drawSectionHeader("INGREDIENTS  (\(scan.ingredientCount))")
 
-            let ingredientFont = UIFont.systemFont(ofSize: 10)
-            for (index, ingredient) in scan.ingredients.enumerated() {
-                let line = "\(index + 1). \(ingredient)"
-                ensureSpace(16)
-                let lineH = drawText(line, at: margin, font: ingredientFont, color: .lightGray)
-                y += lineH + 2
+            let iFont = UIFont.systemFont(ofSize: 10)
+            for (i, ingredient) in scan.ingredients.enumerated() {
+                ensureSpace(15)
+                y += draw("\(i + 1).  \(ingredient)", x: margin, font: iFont, color: subInk) + 3
             }
-        }
 
-        return data
+            // ── Footer ───────────────────────────────────────────────
+            ensureSpace(24)
+            y = pageBottom - 8
+            draw("Generated by CheckMe · \(scan.dateSaved.shortDisplay)", x: margin, font: UIFont.systemFont(ofSize: 9), color: faintInk)
+        }
     }
 
     private func deleteScan() {
