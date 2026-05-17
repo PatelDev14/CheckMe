@@ -30,7 +30,7 @@ struct SkinScanView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(scan.itemName)
                                 .font(.headline)
-                            Text("\(scan.ingredients.count) ingredients · \(scan.dateSaved.shortDisplay)")
+                            Text("\(scan.ingredientCount) ingredients · \(scan.dateSaved.shortDisplay)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

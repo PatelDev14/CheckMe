@@ -1,12 +1,9 @@
-//
-//  FoodScanView.swift
-//  CheckMe
-//
-//  Created by Dev Patel on 2026-05-16.
-//
-
 import SwiftUI
 import SwiftData
+
+// Home screen for the Food & Beverages category.
+// Shows scan history as cards with gut rating badges, a search bar,
+// and a prominent scan button that opens the full-screen camera.
 
 struct FoodScanView: View {
     @Query(
@@ -16,41 +13,323 @@ struct FoodScanView: View {
     )
     private var scans: [ScanModel]
 
+    @Environment(ThemeManager.self) private var themeManager
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var showCamera = false
+    @State private var lastScannedScan: ScanModel?
+    @State private var navigateToLastScan = false
+    @State private var searchText = ""
+    @State private var scanToDelete: ScanModel?  // for confirmation dialog
+
+    private var filteredScans: [ScanModel] {
+        guard !searchText.isEmpty else { return scans }
+        return scans.filter { scan in
+            scan.itemName.localizedCaseInsensitiveContains(searchText) ||
+            scan.ingredients.contains { ingredient in ingredient.localizedCaseInsensitiveContains(searchText) }
+        }
+    }
+
     var body: some View {
         NavigationStack {
-            Group {
-                if scans.isEmpty {
-                    ContentUnavailableView(
-                        "No Food Scans Yet",
-                        systemImage: "camera.viewfinder",
-                        description: Text("Scan a food label to see if it's safe for your stomach.")
-                    )
+            ZStack(alignment: .bottom) {
+                themeManager.selectedTheme.colors.background
+                    .ignoresSafeArea()
+
+                Group {
+                    if scans.isEmpty {
+                        emptyState
+                    } else {
+                        scanList
+                    }
+                }
+
+                // Floating scan button — always visible above the list
+                scanFAB
+            }
+            .navigationTitle("Food & Beverages")
+            .searchable(text: $searchText, prompt: "Search scans or ingredients")
+            // Navigate to IngredientsListView for a newly completed scan
+            .navigationDestination(isPresented: $navigateToLastScan) {
+                if let scan = lastScannedScan {
+                    IngredientsListView(scan: scan)
+                }
+            }
+            .fullScreenCover(isPresented: $showCamera) {
+                CameraView { completedScan in
+                    lastScannedScan = completedScan
+                    navigateToLastScan = true
+                }
+            }
+            // Delete confirmation dialog.
+            // Uses a computed Binding<Bool> instead of .constant() so SwiftUI
+            // can actually dismiss the alert when the user taps Cancel.
+            .alert("Delete Scan?", isPresented: Binding(
+                get: { scanToDelete != nil },
+                set: { if !$0 { scanToDelete = nil } }
+            )) {
+                Button(role: .destructive) {
+                    if let scan = scanToDelete {
+                        deleteScan(scan)
+                    }
+                    scanToDelete = nil
+                } label: {
+                    Text("Delete")
+                }
+                Button(role: .cancel) {
+                    scanToDelete = nil
+                } label: {
+                    Text("Cancel")
+                }
+            } message: {
+                if let scan = scanToDelete {
+                    Text("Delete \(scan.itemName)? This cannot be undone.")
+                }
+            }
+        }
+    }
+
+    // MARK: - Scan List
+
+    private var scanList: some View {
+        ScrollView {
+            LazyVStack(spacing: 12) {
+                // Stats row at the top
+                statsRow
+
+                if filteredScans.isEmpty {
+                    noResultsView
                 } else {
-                    List(scans) { scan in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(scan.itemName)
-                                .font(.headline)
-                            Text("\(scan.ingredients.count) ingredients · \(scan.dateSaved.shortDisplay)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                    ForEach(filteredScans) { scan in
+                        NavigationLink(destination: IngredientsListView(scan: scan)) {
+                            ScanHistoryCard(scan: scan)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                scanToDelete = scan  // show confirmation
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                scanToDelete = scan  // show confirmation
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
                         }
                     }
                 }
             }
-            .navigationTitle("Food Scans")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Scan", systemImage: "camera.viewfinder") {
-                        // Camera flow — implemented in feature/food-scanning
-                    }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 100)  // room for FAB
+        }
+    }
+
+    // MARK: - Stats Row
+
+    private var statsRow: some View {
+        HStack(spacing: 12) {
+            StatChip(
+                value: "\(scans.count)",
+                label: "Scans",
+                icon: "camera.viewfinder",
+                color: themeManager.selectedTheme.colors.accent
+            )
+            StatChip(
+                value: "\(friendlyCount)",
+                label: "Gut Friendly",
+                icon: "checkmark.seal.fill",
+                color: .green
+            )
+            StatChip(
+                value: "\(riskyCount)",
+                label: "High Risk",
+                icon: "xmark.octagon.fill",
+                color: .red
+            )
+        }
+    }
+
+    private var friendlyCount: Int {
+        scans.filter { $0.gutPrediction?.prediction.lowercased().contains("gut friendly") == true }.count
+    }
+
+    private var riskyCount: Int {
+        scans.filter { $0.gutPrediction?.prediction.lowercased().contains("high risk") == true }.count
+    }
+
+    // MARK: - Empty States
+
+    private var emptyState: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            Image(systemName: "camera.viewfinder")
+                .font(.system(size: 64))
+                .foregroundStyle(themeManager.selectedTheme.colors.accent.opacity(0.7))
+            VStack(spacing: 8) {
+                Text("No Food Scans Yet")
+                    .font(.title2).fontWeight(.bold)
+                    .foregroundStyle(.white)
+                Text("Scan an ingredient label to see if it's right for your gut.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.6))
+                    .multilineTextAlignment(.center)
+            }
+            Spacer()
+            Spacer()
+        }
+        .padding(.horizontal, 32)
+    }
+
+    private var noResultsView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.title)
+                .foregroundStyle(.white.opacity(0.4))
+            Text("No results for \(searchText)")
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.5))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 60)
+    }
+
+    // MARK: - Floating Action Button
+
+    private var scanFAB: some View {
+        Button {
+            showCamera = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "camera.viewfinder")
+                    .font(.headline)
+                Text("Scan Label")
+                    .font(.headline).fontWeight(.bold)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 16)
+            .background(
+                Capsule()
+                    .fill(themeManager.selectedTheme.colors.accent)
+                    .shadow(color: themeManager.selectedTheme.colors.accent.opacity(0.5), radius: 12, y: 4)
+            )
+        }
+        .padding(.bottom, 24)
+    }
+
+    // MARK: - Actions
+
+    private func deleteScan(_ scan: ScanModel) {
+        // Haptic feedback for deletion
+        let feedback = UIImpactFeedbackGenerator(style: .medium)
+        feedback.impactOccurred()
+
+        // Safe to delete directly — ScanHistoryCard only reads scalar fields
+        // (itemName, ingredientCount, dateSaved, gutPrediction.prediction) which
+        // are never faulted. The previously problematic ingredients.count access
+        // is now handled by the cached `ingredientCount` Int on the model.
+        modelContext.delete(scan)
+        try? modelContext.save()
+    }
+}
+
+// MARK: - Scan History Card
+
+struct ScanHistoryCard: View {
+    let scan: ScanModel
+    @Environment(ThemeManager.self) private var themeManager
+
+    private var rating: (label: String, color: Color, icon: String) {
+        guard let p = scan.gutPrediction?.prediction.lowercased() else {
+            return ("Not analysed", .gray, "questionmark.circle.fill")
+        }
+        if p.contains("gut friendly")  { return ("Gut Friendly",  .green,  "checkmark.seal.fill") }
+        if p.contains("moderate risk") { return ("Moderate Risk", .orange, "exclamationmark.triangle.fill") }
+        if p.contains("high risk")     { return ("High Risk",     .red,    "xmark.octagon.fill") }
+        return ("Not analysed", .gray, "questionmark.circle.fill")
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            // Rating icon circle
+            ZStack {
+                Circle()
+                    .fill(rating.color.opacity(0.15))
+                    .frame(width: 48, height: 48)
+                Image(systemName: rating.icon)
+                    .foregroundStyle(rating.color)
+                    .font(.title3)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(scan.itemName)
+                    .font(.subheadline).fontWeight(.semibold)
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(rating.label)
+                        .font(.caption).fontWeight(.medium)
+                        .foregroundStyle(rating.color)
+                    Text("·")
+                        .foregroundStyle(.white.opacity(0.3))
+                    Text("\(scan.ingredientCount) ingredients")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.5))
+                    Text("·")
+                        .foregroundStyle(.white.opacity(0.3))
+                    Text(scan.dateSaved.dayDisplay)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.5))
                 }
             }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.3))
         }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.surface))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.07), lineWidth: 1))
+    }
+}
+
+// MARK: - Stat Chip
+
+private struct StatChip: View {
+    let value: String
+    let label: String
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .foregroundStyle(color)
+                .font(.subheadline)
+            Text(value)
+                .font(.title3).fontWeight(.bold)
+                .foregroundStyle(.white)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.5))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(color.opacity(0.15), lineWidth: 1))
     }
 }
 
 #Preview {
     FoodScanView()
-        .modelContainer(for: ScanModel.self, inMemory: true)
+        .modelContainer(for: [ScanModel.self, IngredientsModel.self], inMemory: true)
         .environment(FoundationModelsManager())
+        .environment(UserProfileStore())
+        .environment(ThemeManager())
 }
