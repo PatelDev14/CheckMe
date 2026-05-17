@@ -1,6 +1,10 @@
-# Xcode — User State (varies per developer, causes merge conflicts)
+# Xcode — User State (per-developer files that change constantly and cause dialog prompts)
+# These must be ignored to prevent "Keep Xcode version or use version on disk?" on branch switches.
 *.xcuserstate
 xcuserdata/
+**/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
 *.xcworkspace/xcuserdata/
 *.mode1v3
 *.mode2v3
@@ -20,8 +24,8 @@ build/
 *.dSYM
 
 # Xcode Scheme Management
-*.xcscheme
-!*.xcscheme/*.xcscheme
+# Keep shared schemes (xcshareddata) but ignore personal/local ones (xcuserdata)
+*.xcodeproj/xcuserdata/**/*.xcscheme
 
 # macOS Junk
 .DS_Store
