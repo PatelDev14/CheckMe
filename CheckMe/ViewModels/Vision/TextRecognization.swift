@@ -88,98 +88,34 @@ struct TextRecognizer {
     // MARK: - OCR
 
     /// Returns the full OCR text from the image, lines sorted top-to-bottom.
-    /// Includes comprehensive logging for debugging recognition failures.
-    static func recognizeText(from image: UIImage) async throws -> String {
-        // First, normalize the image orientation
+    ///
+    /// `preprocess`: apply contrast/sharpening before OCR. Helps with ingredient labels
+    /// on coloured packaging but HURTS nutrition panels — black text on white is already
+    /// high-contrast and aggressive sharpening distorts digits ("35" → "3.5").
+    static func recognizeText(from image: UIImage, preprocess: Bool = true) async throws -> String {
         let normalizedImage = normalizeImageOrientation(image)
+        guard let cgImage = normalizedImage.cgImage else { throw RecognitionError.invalidImage }
 
-        guard let cgImage = normalizedImage.cgImage else {
-            throw RecognitionError.invalidImage
-        }
-
-        // Log image metadata for debugging
-        let imageWidth = cgImage.width
-        let imageHeight = cgImage.height
-        let imageScale = normalizedImage.scale
-        let imageOrientation = normalizedImage.imageOrientation
-        let effectiveWidth = Int(CGFloat(imageWidth) / imageScale)
-        let effectiveHeight = Int(CGFloat(imageHeight) / imageScale)
-
-        print("[OCR Debug] Image metadata:")
-        print("  - Dimensions: \(imageWidth) × \(imageHeight) px")
-        print("  - Scale: \(imageScale)x")
-        print("  - Orientation: \(imageOrientation.rawValue)")
-        print("  - Effective size: \(effectiveWidth) × \(effectiveHeight)")
-
-        // Check if image is large enough for OCR (Vision needs reasonable resolution)
-        let minDimension = 200
-        if effectiveWidth < minDimension || effectiveHeight < minDimension {
-            print("[OCR Debug] Warning: Image might be too small for OCR (recommended >= \(minDimension) in both dimensions)")
-        }
-
-        // Preprocess the image to enhance contrast and sharpness
-        let processedCGImage = preprocessImage(cgImage)
+        let cgToUse = preprocess ? preprocessImage(cgImage) : cgImage
 
         return try await withCheckedThrowingContinuation { continuation in
             let request = VNRecognizeTextRequest { request, error in
-                if let error {
-                    print("[OCR Debug] Vision request failed: \(error.localizedDescription)")
-                    print("[OCR Debug] Error code: \((error as NSError).code)")
-                    continuation.resume(throwing: error)
-                    return
-                }
-
+                if let error { continuation.resume(throwing: error); return }
                 let observations = (request.results as? [VNRecognizedTextObservation]) ?? []
-
-                print("[OCR Debug] Vision found \(observations.count) text observations")
-
-                if observations.isEmpty {
-                    print("[OCR Debug] ⚠️  No text observations detected — this could mean:")
-                    print("   - Image contains no readable text")
-                    print("   - Text is too small or unclear")
-                    print("   - Image format incompatibility")
-                    print("   - Preprocessing removed too much information")
-                }
-
-                // Reconstruct reading order: Vision's coordinate origin is bottom-left.
-                // Group observations into horizontal "rows" (same vertical band), then
-                // sort each row left-to-right so two-column labels are read correctly.
-                // Rows within 2% of page height of each other are treated as the same line.
                 let text = Self.reconstructText(from: observations)
-
-                print("[OCR Debug] Extracted text length: \(text.count) characters")
-                if !text.isEmpty {
-                    print("[OCR Debug] First 150 chars: \(String(text.prefix(150)))")
-                } else {
-                    print("[OCR Debug] ⚠️  Text extraction resulted in empty string despite observations")
-                }
-
+                print("[OCR] \(observations.count) observations → \(text.count) chars\(preprocess ? " (preprocessed)" : "")")
                 continuation.resume(returning: text)
             }
 
-            // Use accurate recognition for better results with labels
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = true
-            request.recognitionLanguages = ["en-US", "fr-CA"]  // bilingual labels are common
-
-            // Attempt to auto-detect text if standard approach fails
+            request.recognitionLanguages = ["en-US", "fr-CA"]
             request.automaticallyDetectsLanguage = true
 
-            // Use the preprocessed image with proper orientation
-            let handler = VNImageRequestHandler(
-                cgImage: processedCGImage,
-                orientation: .up,  // Image is already normalized to .up orientation
-                options: [:]
-            )
-
+            let handler = VNImageRequestHandler(cgImage: cgToUse, orientation: .up, options: [:])
             do {
-                print("[OCR Debug] Starting Vision OCR request with processed image...")
-                print("[OCR Debug] Image size: \(processedCGImage.width) × \(processedCGImage.height)")
                 try handler.perform([request])
-                print("[OCR Debug] Vision request completed successfully")
             } catch {
-                print("[OCR Debug] Failed to perform Vision request: \(error.localizedDescription)")
-                print("[OCR Debug] Handler error code: \((error as NSError).code)")
                 continuation.resume(throwing: error)
             }
         }
@@ -314,6 +250,75 @@ struct TextRecognizer {
         return String(rawText.prefix(3000))
     }
 
+    // MARK: - Nutrition Block Extraction
+
+    /// Isolates the Nutrition Facts panel from the full OCR text.
+    /// Mirrors the same strategy as `extractIngredientBlock` but in reverse:
+    /// starts at the nutrition header and cuts when the ingredient list begins.
+    static func extractNutritionBlock(from rawText: String) -> String {
+        let lower = rawText.lowercased()
+
+        let headers: [String] = [
+            "nutrition facts", "valeur nutritive",
+            "nutrition information", "informations nutritionnelles",
+            "nutritional information", "nutritional facts"
+        ]
+
+        // Cut when the ingredient section or unrelated boilerplate begins
+        let cutMarkers: [String] = [
+            "ingredients:", "ingredient:", "ingrédients:", "ingrédient:",
+            "ingredients\n", "ingredient\n",
+            "distributed by", "manufactured by", "produced by", "packaged by",
+            "best before", "meilleur avant",
+            "upc", "www.", "visit us"
+        ]
+
+        var bestBlock = ""
+
+        for header in headers {
+            guard let range = lower.range(of: header) else { continue }
+            let contentStart = lower.distance(from: lower.startIndex, to: range.lowerBound)
+            guard contentStart < rawText.count else { continue }
+            let startIndex = rawText.index(rawText.startIndex, offsetBy: contentStart)
+            let snippet = String(rawText[startIndex...])
+
+            let snipLower = snippet.lowercased()
+            var cutIndex = snippet.endIndex
+            for marker in cutMarkers {
+                if let r = snipLower.range(of: marker), r.lowerBound < cutIndex {
+                    cutIndex = r.lowerBound
+                }
+            }
+
+            let candidate = String(snippet[..<cutIndex])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if candidate.count > 10 && candidate.count > bestBlock.count {
+                bestBlock = candidate
+            }
+        }
+
+        if !bestBlock.isEmpty {
+            return String(bestBlock.prefix(2000))
+        }
+
+        // No header detected — user may have cropped the image so the "Nutrition Facts"
+        // title is outside the frame, leaving only the data rows. Fall back to full text
+        // if it looks like a nutrition panel (contains common nutrient keywords).
+        let nutritionSignals = [
+            "calorie", "total fat", "saturated", "sodium", "carbohydrate", "protein",
+            "dietary fiber", "total sugar", "cholesterol", "trans fat",
+            "matière grasse", "glucides", "protéine", "fibres"
+        ]
+        let signalMatches = nutritionSignals.filter { lower.contains($0) }.count
+        if signalMatches >= 2 {
+            print("[OCR] No nutrition header found but \(signalMatches) panel signals detected — using full text")
+            return String(rawText.prefix(2000))
+        }
+
+        return ""
+    }
+
     // MARK: - Quality Check
 
     /// Returns true if the OCR result looks like it contains an ingredient list.
@@ -333,12 +338,14 @@ enum RecognitionError: LocalizedError {
     case invalidImage
     case noTextFound
     case notAnIngredientLabel
+    case notANutritionLabel
 
     var errorDescription: String? {
         switch self {
-        case .invalidImage:          return "Could not process the image."
-        case .noTextFound:           return "No text was detected. Try better lighting or move closer."
-        case .notAnIngredientLabel:  return "This doesn't look like an ingredient label. Try scanning a different part of the package."
+        case .invalidImage:         return "Could not process the image."
+        case .noTextFound:          return "No text was detected. Try better lighting or move closer."
+        case .notAnIngredientLabel: return "This doesn't look like an ingredient label. Try scanning a different part of the package."
+        case .notANutritionLabel:   return "No Nutrition Facts panel detected. Point the camera directly at the nutrition label."
         }
     }
 }

@@ -17,7 +17,10 @@ struct ContentView: View {
             Tab("Food", systemImage: "fork.knife") {
                 FoodScanView()
             }
-            Tab("Skin", systemImage: "sparkles") {
+            Tab("Nutrition", systemImage: "chart.pie.fill") {
+                NutritionScanView()
+            }
+            Tab("Personal Care", systemImage: "sparkles") {
                 SkinScanView()
             }
             Tab("Settings", systemImage: "gear") {

@@ -63,3 +63,14 @@ fastlane/test_output
 # Claude Code
 .claude/worktrees/
 .claude/plans/
+
+# SwiftData — prevents database conflicts across branches and developers
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# User-generated content (app-created scan images)
+Documents/scan_*.jpg
+
+# Build archives
+*.xcarchive

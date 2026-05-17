@@ -20,6 +20,7 @@ class ScanModel: Identifiable {
 
     var dateSaved: Date = Date.now
     var category: String = HealthCategory.food.rawValue
+    var capturedImagePath: String? = nil
 
     @Relationship(deleteRule: .cascade)
     var summary: GeneralSummaryModel?
@@ -29,6 +30,9 @@ class ScanModel: Identifiable {
 
     @Relationship(deleteRule: .cascade)
     var skinPrediction: SavedSkinPrediction?
+
+    @Relationship(deleteRule: .cascade)
+    var nutritionFacts: SavedNutritionFacts?
 
     init(itemName: String, ingredients: [String], category: HealthCategory = .food) {
         self.itemName = itemName

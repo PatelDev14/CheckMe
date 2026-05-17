@@ -20,7 +20,10 @@ struct FoodScanView: View {
     @State private var lastScannedScan: ScanModel?
     @State private var navigateToLastScan = false
     @State private var searchText = ""
-    @State private var scanToDelete: ScanModel?  // for confirmation dialog
+    @State private var scanToDelete: ScanModel?
+    @State private var isSelectMode = false
+    @State private var selectedIDs: Set<PersistentIdentifier> = []
+    @State private var showBulkDeleteConfirm = false
 
     private var filteredScans: [ScanModel] {
         guard !searchText.isEmpty else { return scans }
@@ -44,12 +47,27 @@ struct FoodScanView: View {
                     }
                 }
 
-                // Floating scan button — always visible above the list
-                scanFAB
+                if isSelectMode {
+                    selectModeBar
+                } else {
+                    scanFAB
+                }
             }
             .navigationTitle("Food & Beverages")
             .searchable(text: $searchText, prompt: "Search scans or ingredients")
-            // Navigate to IngredientsListView for a newly completed scan
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    if !scans.isEmpty {
+                        Button(isSelectMode ? "Done" : "Select") {
+                            withAnimation(.spring(response: 0.3)) {
+                                isSelectMode.toggle()
+                                selectedIDs.removeAll()
+                            }
+                        }
+                        .fontWeight(isSelectMode ? .semibold : .regular)
+                    }
+                }
+            }
             .navigationDestination(isPresented: $navigateToLastScan) {
                 if let scan = lastScannedScan {
                     IngredientsListView(scan: scan)
@@ -61,30 +79,28 @@ struct FoodScanView: View {
                     navigateToLastScan = true
                 }
             }
-            // Delete confirmation dialog.
-            // Uses a computed Binding<Bool> instead of .constant() so SwiftUI
-            // can actually dismiss the alert when the user taps Cancel.
             .alert("Delete Scan?", isPresented: Binding(
                 get: { scanToDelete != nil },
                 set: { if !$0 { scanToDelete = nil } }
             )) {
                 Button(role: .destructive) {
-                    if let scan = scanToDelete {
-                        deleteScan(scan)
-                    }
+                    if let scan = scanToDelete { deleteScan(scan) }
                     scanToDelete = nil
-                } label: {
-                    Text("Delete")
-                }
-                Button(role: .cancel) {
-                    scanToDelete = nil
-                } label: {
-                    Text("Cancel")
-                }
+                } label: { Text("Delete") }
+                Button(role: .cancel) { scanToDelete = nil } label: { Text("Cancel") }
             } message: {
                 if let scan = scanToDelete {
                     Text("Delete \(scan.itemName)? This cannot be undone.")
                 }
+            }
+            .alert("Delete \(selectedIDs.count) Scan\(selectedIDs.count == 1 ? "" : "s")?",
+                   isPresented: $showBulkDeleteConfirm) {
+                Button(role: .destructive) { deleteSelected() } label: {
+                    Text("Delete")
+                }
+                Button(role: .cancel) {} label: { Text("Cancel") }
+            } message: {
+                Text("This cannot be undone.")
             }
         }
     }
@@ -94,29 +110,37 @@ struct FoodScanView: View {
     private var scanList: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                // Stats row at the top
                 statsRow
 
                 if filteredScans.isEmpty {
                     noResultsView
                 } else {
                     ForEach(filteredScans) { scan in
-                        NavigationLink(destination: IngredientsListView(scan: scan)) {
-                            ScanHistoryCard(scan: scan)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                scanToDelete = scan  // show confirmation
+                        let isSelected = selectedIDs.contains(scan.persistentModelID)
+                        if isSelectMode {
+                            Button {
+                                withAnimation(.spring(response: 0.25)) {
+                                    if isSelected { selectedIDs.remove(scan.persistentModelID) }
+                                    else { selectedIDs.insert(scan.persistentModelID) }
+                                }
                             } label: {
-                                Label("Delete", systemImage: "trash")
+                                ScanHistoryCard(scan: scan, isSelected: isSelected, isSelectMode: true)
                             }
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                scanToDelete = scan  // show confirmation
-                            } label: {
-                                Label("Delete", systemImage: "trash")
+                            .buttonStyle(.plain)
+                        } else {
+                            NavigationLink(destination: IngredientsListView(scan: scan)) {
+                                ScanHistoryCard(scan: scan)
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button(role: .destructive) { scanToDelete = scan } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) { scanToDelete = scan } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
                             }
                         }
                     }
@@ -124,7 +148,42 @@ struct FoodScanView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
-            .padding(.bottom, 100)  // room for FAB
+            .padding(.bottom, 100)
+        }
+    }
+
+    // MARK: - Select Mode Bottom Bar
+
+    private var selectModeBar: some View {
+        VStack(spacing: 0) {
+            Divider().background(.white.opacity(0.1))
+            HStack(spacing: 16) {
+                if selectedIDs.isEmpty {
+                    Text("Tap scans to select")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.5))
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Button {
+                        selectedIDs = Set(filteredScans.map { $0.persistentModelID })
+                    } label: {
+                        Text("Select All")
+                            .font(.subheadline).fontWeight(.medium)
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                    Spacer()
+                    Button {
+                        showBulkDeleteConfirm = true
+                    } label: {
+                        Label("Delete (\(selectedIDs.count))", systemImage: "trash")
+                            .font(.subheadline).fontWeight(.semibold)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+            .background(.ultraThinMaterial)
         }
     }
 
@@ -224,16 +283,19 @@ struct FoodScanView: View {
     // MARK: - Actions
 
     private func deleteScan(_ scan: ScanModel) {
-        // Haptic feedback for deletion
         let feedback = UIImpactFeedbackGenerator(style: .medium)
         feedback.impactOccurred()
-
-        // Safe to delete directly — ScanHistoryCard only reads scalar fields
-        // (itemName, ingredientCount, dateSaved, gutPrediction.prediction) which
-        // are never faulted. The previously problematic ingredients.count access
-        // is now handled by the cached `ingredientCount` Int on the model.
         modelContext.delete(scan)
         try? modelContext.save()
+    }
+
+    private func deleteSelected() {
+        let toDelete = filteredScans.filter { selectedIDs.contains($0.persistentModelID) }
+        let feedback = UIImpactFeedbackGenerator(style: .medium)
+        feedback.impactOccurred()
+        toDelete.forEach { modelContext.delete($0) }
+        try? modelContext.save()
+        withAnimation { selectedIDs.removeAll(); isSelectMode = false }
     }
 }
 
@@ -241,6 +303,8 @@ struct FoodScanView: View {
 
 struct ScanHistoryCard: View {
     let scan: ScanModel
+    var isSelected: Bool = false
+    var isSelectMode: Bool = false
     @Environment(ThemeManager.self) private var themeManager
 
     private var rating: (label: String, color: Color, icon: String) {
@@ -255,7 +319,13 @@ struct ScanHistoryCard: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            // Rating icon circle
+            if isSelectMode {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isSelected ? Color.blue : .white.opacity(0.4))
+                    .animation(.spring(response: 0.2), value: isSelected)
+            }
+
             ZStack {
                 Circle()
                     .fill(rating.color.opacity(0.15))
@@ -274,28 +344,33 @@ struct ScanHistoryCard: View {
                     Text(rating.label)
                         .font(.caption).fontWeight(.medium)
                         .foregroundStyle(rating.color)
-                    Text("·")
-                        .foregroundStyle(.white.opacity(0.3))
+                    Text("·").foregroundStyle(.white.opacity(0.3))
                     Text("\(scan.ingredientCount) ingredients")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.5))
-                    Text("·")
-                        .foregroundStyle(.white.opacity(0.3))
+                        .font(.caption).foregroundStyle(.white.opacity(0.5))
+                    Text("·").foregroundStyle(.white.opacity(0.3))
                     Text(scan.dateSaved.dayDisplay)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.5))
+                        .font(.caption).foregroundStyle(.white.opacity(0.5))
                 }
             }
 
             Spacer()
 
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.3))
+            if !isSelectMode {
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.3))
+            }
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.surface))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.07), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 14).fill(
+            isSelected
+                ? Color.blue.opacity(0.15)
+                : themeManager.selectedTheme.colors.surface
+        ))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(
+            isSelected ? Color.blue.opacity(0.5) : .white.opacity(0.07),
+            lineWidth: isSelected ? 1.5 : 1
+        ))
     }
 }
 

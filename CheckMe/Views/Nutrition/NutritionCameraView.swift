@@ -1,50 +1,40 @@
 import SwiftUI
 import SwiftData
 
-// Full-screen camera view used for scanning food/beverage labels.
-// Manages the Camera session lifecycle and hands captured photos to IngredientsViewModel.
+// Full-screen camera for scanning a Nutrition Facts panel.
+// Mirrors SkinCameraView but uses NutritionViewModel.
 
-struct CameraView: View {
+struct NutritionCameraView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(UserProfileStore.self) private var profileStore
     @Environment(ThemeManager.self) private var themeManager
 
-    // Called when a scan is successfully processed so the parent can navigate to results
     let onScanComplete: (ScanModel) -> Void
 
     @State private var camera = Camera()
-    @State private var viewModel: IngredientsViewModel?
+    @State private var viewModel: NutritionViewModel?
     @State private var showFocusRing = false
     @State private var focusPoint: CGPoint = .zero
-    @State private var navigateToResults = false
-    @State private var capturedImageForPreview: UIImage?  // Photo review before analysis
-    @State private var zoomScale: CGFloat = 1.0  // For pinch-to-zoom in preview
+    @State private var capturedImageForPreview: UIImage?
+    @State private var zoomScale: CGFloat = 1.0
 
     var body: some View {
         ZStack {
-            // MARK: Crop Screen (after capture, before analysis)
             if let previewImage = capturedImageForPreview {
                 cropScreen(previewImage)
-            }
-            // MARK: Camera Preview
-            else if camera.permissionGranted {
+            } else if camera.permissionGranted {
                 GeometryReader { geo in
                     CameraPreview(session: camera.captureSession)
                         .ignoresSafeArea()
-                        // Tap-to-focus: convert tap to normalized coords and forward to Camera
                         .onTapGesture { location in
-                            let normalized = CGPoint(
-                                x: location.x / geo.size.width,
-                                y: location.y / geo.size.height
-                            )
+                            let normalized = CGPoint(x: location.x / geo.size.width, y: location.y / geo.size.height)
                             camera.focus(at: normalized)
                             focusPoint = location
                             withAnimation(.easeOut(duration: 0.2)) { showFocusRing = true }
                             withAnimation(.easeOut(duration: 0.4).delay(0.8)) { showFocusRing = false }
                         }
 
-                    // Focus ring animation at the tap point
                     if showFocusRing {
                         RoundedRectangle(cornerRadius: 4)
                             .stroke(Color.yellow, lineWidth: 1.5)
@@ -56,56 +46,41 @@ struct CameraView: View {
             } else if camera.permissionDenied {
                 permissionDeniedView
             } else {
-                // Still awaiting permission dialog
                 Color.black.ignoresSafeArea()
             }
 
-            // MARK: Viewfinder Overlay (hidden during preview)
             if camera.permissionGranted && viewModel?.phase.isProcessing != true && capturedImageForPreview == nil {
                 VStack(spacing: 0) {
-                    // Top gradient bar — dismiss button + flash toggle
                     LinearGradient(colors: [.black.opacity(0.6), .clear], startPoint: .top, endPoint: .bottom)
                         .frame(height: 120)
-                        .overlay(alignment: .topLeading) {
-                            topControls
-                        }
+                        .overlay(alignment: .topLeading) { topControls }
                         .ignoresSafeArea(edges: .top)
 
                     Spacer()
-
-                    // Scanning frame hint
                     scanFrameHint
-
                     Spacer()
 
-                    // Bottom bar — shutter + guidance text
                     LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .top, endPoint: .bottom)
                         .frame(height: 200)
-                        .overlay(alignment: .bottom) {
-                            bottomControls
-                        }
+                        .overlay(alignment: .bottom) { bottomControls }
                         .ignoresSafeArea(edges: .bottom)
                 }
             }
 
-            // MARK: Processing Overlay
             if let vm = viewModel, vm.phase.isProcessing {
                 processingOverlay(vm: vm)
             }
 
-            // MARK: Error Banner
             if let vm = viewModel, vm.phase.isFailed {
                 errorBanner(vm: vm)
             }
         }
         .background(Color.black.ignoresSafeArea())
         .onAppear {
-            viewModel = IngredientsViewModel(modelContext: modelContext, profileStore: profileStore)
+            viewModel = NutritionViewModel(modelContext: modelContext, profileStore: profileStore)
             camera.start()
         }
-        .onDisappear {
-            camera.stop()
-        }
+        .onDisappear { camera.stop() }
         .onChange(of: viewModel?.phase) { _, newPhase in
             if let phase = newPhase, case .complete = phase, let scan = viewModel?.currentScan {
                 onScanComplete(scan)
@@ -118,58 +93,45 @@ struct CameraView: View {
 
     private var topControls: some View {
         HStack {
-            Button {
-                dismiss()
-            } label: {
+            Button { dismiss() } label: {
                 Image(systemName: "xmark")
                     .font(.title3).fontWeight(.semibold)
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
                     .background(Circle().fill(.black.opacity(0.4)))
             }
-            .padding(.leading, 16)
-            .padding(.top, 56)
+            .padding(.leading, 16).padding(.top, 56)
 
             Spacer()
 
-            Button {
-                camera.toggleFlash()
-            } label: {
+            Button { camera.toggleFlash() } label: {
                 Image(systemName: camera.isFlashOn ? "bolt.fill" : "bolt.slash.fill")
                     .font(.title3).fontWeight(.semibold)
                     .foregroundStyle(camera.isFlashOn ? .yellow : .white)
                     .frame(width: 44, height: 44)
                     .background(Circle().fill(.black.opacity(0.4)))
             }
-            .padding(.trailing, 16)
-            .padding(.top, 56)
+            .padding(.trailing, 16).padding(.top, 56)
         }
     }
 
     private var scanFrameHint: some View {
-        // Only corner accents — no full-border box so it's less obtrusive
-        CornerAccents()
+        // Wider frame for nutrition panels which are typically taller than ingredient lists
+        CornerAccentsNutrition()
             .stroke(.white.opacity(0.9), lineWidth: 3)
-            .frame(width: 300, height: 180)
+            .frame(width: 280, height: 220)
     }
 
     private var bottomControls: some View {
         VStack(spacing: 16) {
-            Text("Point at the ingredient list")
+            Text("Point at the Nutrition Facts panel")
                 .font(.subheadline).fontWeight(.medium)
                 .foregroundStyle(.white.opacity(0.85))
 
-            // Shutter button — outer ring + inner circle
-            Button {
-                triggerCapture()
-            } label: {
+            Button { triggerCapture() } label: {
                 ZStack {
-                    Circle()
-                        .stroke(.white.opacity(0.6), lineWidth: 3)
-                        .frame(width: 78, height: 78)
-                    Circle()
-                        .fill(.white)
-                        .frame(width: 62, height: 62)
+                    Circle().stroke(.white.opacity(0.6), lineWidth: 3).frame(width: 78, height: 78)
+                    Circle().fill(.white).frame(width: 62, height: 62)
                 }
             }
             .disabled(viewModel?.phase.isProcessing ?? false)
@@ -177,10 +139,9 @@ struct CameraView: View {
         .padding(.bottom, 48)
     }
 
-    private func processingOverlay(vm: IngredientsViewModel) -> some View {
+    private func processingOverlay(vm: NutritionViewModel) -> some View {
         ZStack {
             Color.black.opacity(0.85).ignoresSafeArea()
-
             VStack(spacing: 24) {
                 ProgressView()
                     .progressViewStyle(.circular)
@@ -191,17 +152,10 @@ struct CameraView: View {
                     Text(vm.phase.statusText)
                         .font(.headline).fontWeight(.semibold)
                         .foregroundStyle(.white)
-
-                    // Show partial results as they come in
                     if !vm.partialProductName.isEmpty {
                         Text(vm.partialProductName)
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.7))
-                    }
-                    if !vm.partialIngredients.isEmpty {
-                        Text("\(vm.partialIngredients.count) ingredients found")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.5))
                     }
                 }
             }
@@ -211,31 +165,24 @@ struct CameraView: View {
         .animation(.easeInOut(duration: 0.3), value: vm.phase)
     }
 
-    private func errorBanner(vm: IngredientsViewModel) -> some View {
+    private func errorBanner(vm: NutritionViewModel) -> some View {
         VStack {
             Spacer()
             HStack(spacing: 12) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Scan failed")
-                        .font(.subheadline).fontWeight(.semibold)
-                        .foregroundStyle(.white)
+                        .font(.subheadline).fontWeight(.semibold).foregroundStyle(.white)
                     if case .failed(let msg) = vm.phase {
-                        Text(msg)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(2)
+                        Text(msg).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(2)
                     }
                 }
                 Spacer()
-                Button("Retry") {
-                    vm.reset()
-                }
-                .font(.subheadline).fontWeight(.semibold)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(Capsule().fill(.white.opacity(0.2)))
+                Button("Retry") { vm.reset() }
+                    .font(.subheadline).fontWeight(.semibold)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(Capsule().fill(.white.opacity(0.2)))
             }
             .padding()
             .background(.ultraThinMaterial.opacity(0.9))
@@ -249,14 +196,10 @@ struct CameraView: View {
 
     private var permissionDeniedView: some View {
         VStack(spacing: 20) {
-            Image(systemName: "camera.fill")
-                .font(.system(size: 56))
-                .foregroundStyle(.white.opacity(0.4))
-            Text("Camera Access Required")
-                .font(.title2).fontWeight(.bold).foregroundStyle(.white)
-            Text("CheckMe needs camera access to scan ingredient labels.")
-                .font(.subheadline).foregroundStyle(.white.opacity(0.7))
-                .multilineTextAlignment(.center)
+            Image(systemName: "camera.fill").font(.system(size: 56)).foregroundStyle(.white.opacity(0.4))
+            Text("Camera Access Required").font(.title2).fontWeight(.bold).foregroundStyle(.white)
+            Text("CheckMe needs camera access to scan nutrition labels.")
+                .font(.subheadline).foregroundStyle(.white.opacity(0.7)).multilineTextAlignment(.center)
             Button("Open Settings") {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
@@ -264,39 +207,28 @@ struct CameraView: View {
             }
             .buttonStyle(.borderedProminent)
         }
-        .padding(32)
-        .background(Color.black.ignoresSafeArea())
+        .padding(32).background(Color.black.ignoresSafeArea())
     }
 
     // MARK: - Actions
 
     private func triggerCapture() {
-        guard let vm = viewModel else { return }
-
-        // Haptic feedback — shutter click sensation
         let feedback = UIImpactFeedbackGenerator(style: .medium)
         feedback.impactOccurred()
-
         Task {
             do {
                 let image = try await camera.capturePhoto()
-                // Show preview instead of immediately processing
-                await MainActor.run {
-                    capturedImageForPreview = image
-                }
+                await MainActor.run { capturedImageForPreview = image }
             } catch {
-                await MainActor.run {
-                    viewModel?.phase = .failed(error.localizedDescription)
-                }
+                await MainActor.run { viewModel?.phase = .failed(error.localizedDescription) }
             }
         }
     }
 
-
     private func cropScreen(_ image: UIImage) -> some View {
         ImageCropView(
             image: image,
-            tintColor: Color(red: 0.20, green: 0.78, blue: 0.45),
+            tintColor: Color(red: 0.55, green: 0.45, blue: 0.95),
             onCrop: { cropped in
                 guard let vm = viewModel else { return }
                 capturedImageForPreview = nil
@@ -317,39 +249,30 @@ struct CameraView: View {
 
 // MARK: - Corner Accents Shape
 
-/// Draws only the four corner segments of a rounded rect, creating the classic "scan frame" look.
-private struct CornerAccents: Shape {
+private struct CornerAccentsNutrition: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        let r: CGFloat = 16  // matches the container's corner radius
-        let len: CGFloat = 28 // how long each corner segment is
+        let r: CGFloat = 16
+        let len: CGFloat = 28
 
-        // Top-left
         path.move(to: CGPoint(x: rect.minX, y: rect.minY + r + len))
         path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + r))
-        path.addQuadCurve(to: CGPoint(x: rect.minX + r, y: rect.minY),
-                          control: CGPoint(x: rect.minX, y: rect.minY))
+        path.addQuadCurve(to: CGPoint(x: rect.minX + r, y: rect.minY), control: CGPoint(x: rect.minX, y: rect.minY))
         path.addLine(to: CGPoint(x: rect.minX + r + len, y: rect.minY))
 
-        // Top-right
         path.move(to: CGPoint(x: rect.maxX - r - len, y: rect.minY))
         path.addLine(to: CGPoint(x: rect.maxX - r, y: rect.minY))
-        path.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.minY + r),
-                          control: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.minY + r), control: CGPoint(x: rect.maxX, y: rect.minY))
         path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + r + len))
 
-        // Bottom-right
         path.move(to: CGPoint(x: rect.maxX, y: rect.maxY - r - len))
         path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - r))
-        path.addQuadCurve(to: CGPoint(x: rect.maxX - r, y: rect.maxY),
-                          control: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addQuadCurve(to: CGPoint(x: rect.maxX - r, y: rect.maxY), control: CGPoint(x: rect.maxX, y: rect.maxY))
         path.addLine(to: CGPoint(x: rect.maxX - r - len, y: rect.maxY))
 
-        // Bottom-left
         path.move(to: CGPoint(x: rect.minX + r + len, y: rect.maxY))
         path.addLine(to: CGPoint(x: rect.minX + r, y: rect.maxY))
-        path.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.maxY - r),
-                          control: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.maxY - r), control: CGPoint(x: rect.minX, y: rect.maxY))
         path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - r - len))
 
         return path
