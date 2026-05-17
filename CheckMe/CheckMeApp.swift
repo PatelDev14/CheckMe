@@ -15,7 +15,9 @@ struct CheckMeApp: App {
             ScanModel.self,
             GeneralSummaryModel.self,
             SavedGutPrediction.self,
+            SavedSkinPrediction.self,
             IngredientsModel.self,
+            SkinIngredientModel.self,
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {

@@ -406,9 +406,13 @@ struct FlowLayout: Layout {
         var height: CGFloat = 0
         var x: CGFloat = 0
         var rowHeight: CGFloat = 0
+        // Propose maxWidth so long text wraps within badges rather than overflowing the container.
+        let sizeProposal = maxWidth > 0
+            ? ProposedViewSize(width: maxWidth, height: nil)
+            : ProposedViewSize.unspecified
 
         for view in subviews {
-            let size = view.sizeThatFits(.unspecified)
+            let size = view.sizeThatFits(sizeProposal)
             if x + size.width > maxWidth, x > 0 {
                 height += rowHeight + spacing
                 x = 0
@@ -426,9 +430,10 @@ struct FlowLayout: Layout {
         var x = bounds.minX
         var y = bounds.minY
         var rowHeight: CGFloat = 0
+        let sizeProposal = ProposedViewSize(width: maxWidth, height: nil)
 
         for view in subviews {
-            let size = view.sizeThatFits(.unspecified)
+            let size = view.sizeThatFits(sizeProposal)
             if x + size.width > bounds.minX + maxWidth, x > bounds.minX {
                 y += rowHeight + spacing
                 x = bounds.minX
