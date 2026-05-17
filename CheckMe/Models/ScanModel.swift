@@ -97,9 +97,12 @@ struct ProductInfo {
 
     @Guide(description: """
         A flat list where EACH ELEMENT IS EXACTLY ONE INGREDIENT. \
-        Split the comma-separated ingredient list so every top-level item becomes its own array entry. \
-        Sub-ingredients in parentheses stay attached to their parent — e.g. \
-        'Enriched Flour (Wheat, Niacin, Iron)' is ONE entry, not four. \
+        CRITICAL RULES for sub-ingredients in parentheses: \
+        ✓ CORRECT: 'Enriched Flour (Wheat, Niacin, Iron)' is ONE entry \
+        ✗ WRONG: Returning 'Enriched Flour' AND 'Wheat' AND 'Niacin' AND 'Iron' separately \
+        ✓ CORRECT: 'Natural Flavour (Paprika Extract, Garlic Powder)' stays together \
+        ✗ WRONG: Splitting any ingredient that has a parenthetical sub-ingredient list. \
+        Split ONLY at top-level commas (outside parentheses). Keep everything in parentheses attached. \
         Never return the entire ingredient list as a single string. \
         Remove percentages, weights, asterisks, footnote markers, and OCR noise. \
         Return an empty array only if no ingredient list is present in the text.
