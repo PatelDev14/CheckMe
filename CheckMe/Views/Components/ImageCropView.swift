@@ -212,6 +212,20 @@ struct ImageCropView: View {
     }
 
     private var bottomBar: some View {
+        VStack(spacing: 10) {
+            // Bilingual label tip
+            HStack(spacing: 6) {
+                Image(systemName: "text.quote")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.55))
+                Text("Bilingual label? Crop to the English section only for best results.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 8)
+            .background(Capsule().fill(.white.opacity(0.08)))
+
         HStack(spacing: 12) {
             Button {
                 onUseFull()
@@ -237,6 +251,7 @@ struct ImageCropView: View {
                 .padding(.vertical, 14)
                 .background(Capsule().fill(tintColor))
             }
+        }
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 50)

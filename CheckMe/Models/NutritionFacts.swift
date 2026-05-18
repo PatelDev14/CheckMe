@@ -50,6 +50,13 @@ struct NutritionFactsExtraction {
 
     @Guide(description: "Vitamin C in milligrams per serving (if listed), number only. Return '0' if not found.")
     var vitaminCMg: String
+
+    @Guide(description: """
+        List of allergens from the 'Contains:' or 'Allergens:' statement printed on the label \
+        (e.g. ['Wheat', 'Milk', 'Soy']). Return an empty array if no allergen statement is present. \
+        Do NOT infer allergens — only return what is explicitly stated.
+        """)
+    var allergens: [String]
 }
 
 @Generable
@@ -118,6 +125,7 @@ class SavedNutritionFacts {
     var containerType: String = "box"
     var fillLayerNames: [String] = []
     var fillLayerPercents: [String] = []
+    var allergens: [String] = []
     var timestamp: Date
 
     init(from extraction: NutritionFactsExtraction, insight: String = "", layers: NutritionLayers? = nil) {
@@ -140,6 +148,7 @@ class SavedNutritionFacts {
         self.containerType      = layers?.containerType ?? "box"
         self.fillLayerNames     = layers?.layerNames ?? []
         self.fillLayerPercents  = layers?.layerPercents ?? []
+        self.allergens          = extraction.allergens
         self.timestamp          = Date.now
     }
 

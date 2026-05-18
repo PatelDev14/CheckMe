@@ -15,6 +15,24 @@ struct NutrientKnowledge: Identifiable {
 
 extension NutrientKnowledge {
     static let all: [String: NutrientKnowledge] = [
+        "Water": NutrientKnowledge(
+            name: "Water",
+            icon: "drop.fill",
+            color: Color(red: 0.25, green: 0.55, blue: 0.95),
+            role: "Water is the primary component of most beverages and makes up around 60% of the human body. It carries nutrients to cells, regulates temperature, and supports every metabolic process.",
+            dailyContext: "General guidelines suggest roughly 2–3 litres of total fluid per day from all sources. Beverages, soups, and water-rich foods all count.",
+            sources: "Plain water, sparkling water, tea, coffee, juice, milk, and water-rich foods such as cucumber, watermelon, and lettuce.",
+            watchOut: "Beverages high in water can still carry significant calories from sugar or fat — always check the full nutrition panel alongside the serving size."
+        ),
+        "Starch": NutrientKnowledge(
+            name: "Net Carbs",
+            icon: "bolt.fill",
+            color: Color(red: 0.78, green: 0.52, blue: 0.30),
+            role: "Starch is a complex carbohydrate made of long glucose chains. It digests more slowly than simple sugars, providing a steadier release of energy.",
+            dailyContext: "Starch is the main carbohydrate in most diets. There is no separate daily value — it falls under total carbohydrates (275 g reference). Whole-grain starches also deliver fiber and micronutrients.",
+            sources: "Bread, pasta, rice, oats, potatoes, corn, legumes, and most grain-based products.",
+            watchOut: "Refined starches (white bread, white rice) digest quickly and spike blood sugar faster than whole-grain versions. Choose whole grains where possible."
+        ),
         "Calories": NutrientKnowledge(
             name: "Calories",
             icon: "flame.fill",

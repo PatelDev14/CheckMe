@@ -85,9 +85,16 @@ struct SkinCameraView: View {
         }
         .onDisappear { camera.stop() }
         .onChange(of: viewModel?.phase) { _, newPhase in
-            if let phase = newPhase, case .complete = phase, let scan = viewModel?.currentScan {
+            guard let phase = newPhase else { return }
+            if case .complete = phase, let scan = viewModel?.currentScan {
                 onScanComplete(scan)
                 dismiss()
+                return
+            }
+            if phase.isProcessing {
+                camera.stop()
+            } else {
+                camera.start()
             }
         }
     }

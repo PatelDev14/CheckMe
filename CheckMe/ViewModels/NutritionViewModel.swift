@@ -185,6 +185,10 @@ final class NutritionViewModel {
           convert between units.
         • "< 1" or "less than 1" → return "0".
         • Field not present → return "0". Serving size not present → return "".
+        • allergens: look for a line starting with "Contains:" or "Allergens:" anywhere \
+          in the label text (not just the nutrition panel). Extract the items listed there \
+          as separate strings (e.g. "Contains: Wheat, Milk, Soy" → ["Wheat", "Milk", "Soy"]). \
+          Return an empty array if no such statement exists.
         """
         let result = try await session.respond(to: prompt, generating: NutritionFactsExtraction.self)
         return result.content
@@ -245,8 +249,8 @@ final class NutritionViewModel {
             components.append(("Water", waterG))
         }
 
-        if sugar  >= 0.5 { components.append(("Sugar",   sugar)) }
-        if starch >= 0.5 { components.append(("Starch",  starch)) }
+        if sugar  >= 0.5 { components.append(("Sugar",    sugar)) }
+        if starch >= 0.5 { components.append(("Net Carbs", starch)) }
         if fat    >= 0.5 { components.append(("Fat",     fat)) }
         if protein >= 0.5 { components.append(("Protein", protein)) }
         if fiber  >= 0.5 { components.append(("Fiber",   fiber)) }
@@ -279,7 +283,14 @@ final class NutritionViewModel {
 
     private func parseServingMl(_ serving: String) -> Double {
         let s = serving.lowercased()
+        // Prefer explicit mL
         if let v = extractLeadingNumber(before: "ml", in: s), v > 0 { return v }
+        // Fluid ounces (1 fl oz ≈ 29.57 mL) — check before plain "oz" to avoid conflict
+        if s.contains("fl oz") || s.contains("floz") || s.contains("fluid oz") {
+            if let v = extractLeadingNumber(before: "fl", in: s), v > 0 { return v * 29.57 }
+            if let v = extractLeadingNumber(before: "oz", in: s), v > 0 { return v * 29.57 }
+        }
+        // Plain grams (strip "mg" first so milligram values don't masquerade as grams)
         let noMg = s.replacingOccurrences(of: "mg", with: "  ")
         if let v = extractLeadingNumber(before: "g", in: noMg), v > 0 { return v }
         return 0
