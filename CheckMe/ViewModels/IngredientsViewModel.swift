@@ -421,40 +421,45 @@ final class IngredientsViewModel {
         let ingredientList = ingredients.joined(separator: ", ")
 
         let systemInstructions = context.isEmpty
-            ? "You are a neutral food analyst. Provide factual information only. Do NOT make health recommendations without a user profile to reference."
+            ? "You are a neutral food analyst. Provide purely factual, non-alarmist overviews of food products. Never flag or warn about ingredients when no user profile is provided."
             : "You are a gut health specialist evaluating food for a specific user. \(context)"
 
         let session = LanguageModelSession(instructions: systemInstructions)
+
+        let noProfileRules = """
+        CRITICAL — No user profile is set:
+        - prediction MUST start with exactly "Gut Friendly" followed by one neutral, factual sentence describing what the product is.
+        - triggers MUST be an empty array. Do NOT list any ingredients here.
+        - cautions MUST be an empty array. Do NOT list any ingredients here.
+        - tip: One friendly, positive note (e.g. how to enjoy the product, not a health warning).
+        Do NOT flag, warn about, or mention allergens, additives, or risks of any kind.
+        """
+
+        let hasProfileRules = """
+        1. prediction: Use EXACTLY one of these phrases:
+           - "Gut Friendly" — minimal concerns for this user
+           - "Moderate Risk" — 1–2 concerns worth noting
+           - "High Risk" — 3+ serious concerns or a known allergen for this user
+           Follow with one sentence explaining why, tailored to their profile.
+
+        2. triggers: Ingredients this user should AVOID based on their stated allergies/conditions.
+           Empty array if none apply.
+
+        3. cautions: Ingredients with mild concerns for this specific user's profile.
+           Empty array if none apply.
+
+        4. tip: One practical tip personalised to their profile.
+        """
+
         let prompt = """
-        Analyze this food product for gut-health and general nutritional concerns.
+        Analyze this food product.
 
         Product: \(productName)
         Ingredients: \(ingredientList)
 
-        User Profile: \(context.isEmpty ? "NO PROFILE PROVIDED" : context)
+        User Profile: \(context.isEmpty ? "NONE — user has not completed their health profile" : context)
 
-        Instructions:
-
-        1. prediction: Use EXACTLY one of these phrases based on BOTH user-specific + general health concerns:
-           - "Gut Friendly" — minimal concerns for this user
-           - "Moderate Risk" — 1–2 concerns worth noting
-           - "High Risk" — 3+ serious concerns or a known allergen
-           Follow with one sentence explaining why.
-
-        2. triggers: Ingredients this user should AVOID:
-           - If user profile exists: ingredients conflicting with their allergies/conditions
-           - If NO user profile: ingredients that are generally problematic (major allergens like peanuts, tree nuts, shellfish, or ingredients with significant health warnings)
-           Be precise and name exact ingredients.
-
-        3. cautions: Mild concerns for this user:
-           - If user profile exists: ingredients that conflict with their profile (high sugar if diabetic-friendly, etc.)
-           - If NO user profile: ingredients that have general nutritional concerns (high sugar, high sodium, artificial additives, common irritants like gelatin for some, etc.)
-           Be specific with exact ingredient names.
-
-        4. tip: One practical tip based on the product's ingredients and the user's profile (or general advice if no profile).
-
-        Remember: Provide BOTH user-specific warnings (if profile exists) AND general health information (always).
-        This helps users understand their product comprehensively.
+        \(context.isEmpty ? noProfileRules : hasProfileRules)
         """
         let result = try await session.respond(to: prompt, generating: GutPrediction.self)
         return result.content
@@ -538,18 +543,32 @@ final class IngredientsViewModel {
                 productName: scan.itemName,
                 ingredients: scan.ingredients
             )
-            scan.gutPrediction = SavedGutPrediction(from: gutPrediction)
+
+            // Delete the old SwiftData objects before inserting replacements.
+            // Without this, the old records stay orphaned in the context and SwiftData
+            // may not persist the newly assigned relationship on the first save attempt.
+            if let old = scan.gutPrediction { modelContext.delete(old) }
+
+            let newGutPrediction = SavedGutPrediction(from: gutPrediction)
+            modelContext.insert(newGutPrediction)
+            scan.gutPrediction = newGutPrediction
 
             phase = .analyzingSummary
             let summary = try await generateSummary(
                 productName: scan.itemName,
                 ingredients: scan.ingredients
             )
-            scan.summary = GeneralSummaryModel(
+
+            if let old = scan.summary { modelContext.delete(old) }
+
+            let newSummary = GeneralSummaryModel(
                 overview: summary.overview,
                 digestionProcess: summary.digestionProcess,
                 complexity: summary.complexity
             )
+            modelContext.insert(newSummary)
+            scan.summary = newSummary
+
             try modelContext.save()
             currentScan = scan
             phase = .complete

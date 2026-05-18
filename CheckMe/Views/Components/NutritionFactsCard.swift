@@ -12,6 +12,7 @@ struct NutritionFactsCard: View {
 
     @Environment(ThemeManager.self) private var themeManager
     @State private var isExpanded = false
+    @State private var selectedNutrient: NutrientKnowledge?
 
     init(facts: SavedNutritionFacts, servingsMultiplier: Double = 1.0, startsExpanded: Bool = false) {
         self.facts = facts
@@ -33,6 +34,9 @@ struct NutritionFactsCard: View {
                 .stroke(accentColor.opacity(isExpanded ? 0.4 : 0.18), lineWidth: 1)
         )
         .animation(.spring(response: 0.35, dampingFraction: 0.72), value: isExpanded)
+        .sheet(item: $selectedNutrient) { knowledge in
+            NutrientInfoSheet(knowledge: knowledge)
+        }
     }
 
     // MARK: - Header
@@ -89,21 +93,24 @@ struct NutritionFactsCard: View {
             columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4),
             spacing: 18
         ) {
-            NutrientRing(label: "Calories", value: facts.calories      * servingsMultiplier, unit: "kcal", daily: NutritionDailyValues.calories,      color: Color(red: 0.55, green: 0.45, blue: 0.95), index: 0)
-            NutrientRing(label: "Fat",      value: facts.totalFatG     * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.totalFatG,     color: Color(red: 0.95, green: 0.55, blue: 0.10), index: 1)
-            NutrientRing(label: "Carbs",    value: facts.totalCarbsG   * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.totalCarbsG,   color: Color(red: 0.25, green: 0.55, blue: 0.95), index: 2)
-            NutrientRing(label: "Protein",  value: facts.proteinG      * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.proteinG,      color: Color(red: 0.20, green: 0.80, blue: 0.45), index: 3)
-            NutrientRing(label: "Sugar",    value: facts.sugarG        * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.sugarG,        color: Color(red: 0.95, green: 0.25, blue: 0.25), index: 4)
-            NutrientRing(label: "Sodium",   value: facts.sodiumMg      * servingsMultiplier, unit: "mg",   daily: NutritionDailyValues.sodiumMg,      color: Color(red: 0.95, green: 0.80, blue: 0.15), index: 5)
-            NutrientRing(label: "Fiber",    value: facts.fiberG        * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.fiberG,        color: Color(red: 0.30, green: 0.80, blue: 0.55), index: 6)
-            NutrientRing(label: "Sat. Fat", value: facts.saturatedFatG * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.saturatedFatG, color: Color(red: 0.95, green: 0.45, blue: 0.15), index: 7)
+            NutrientRing(label: "Calories", value: facts.calories      * servingsMultiplier, unit: "kcal", daily: NutritionDailyValues.calories,      color: Color(red: 0.55, green: 0.45, blue: 0.95), index: 0) { selectedNutrient = NutrientKnowledge.all["Calories"] }
+            NutrientRing(label: "Fat",      value: facts.totalFatG     * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.totalFatG,     color: Color(red: 0.95, green: 0.55, blue: 0.10), index: 1) { selectedNutrient = NutrientKnowledge.all["Fat"] }
+            NutrientRing(label: "Carbs",    value: facts.totalCarbsG   * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.totalCarbsG,   color: Color(red: 0.25, green: 0.55, blue: 0.95), index: 2) { selectedNutrient = NutrientKnowledge.all["Carbs"] }
+            NutrientRing(label: "Protein",  value: facts.proteinG      * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.proteinG,      color: Color(red: 0.20, green: 0.80, blue: 0.45), index: 3) { selectedNutrient = NutrientKnowledge.all["Protein"] }
+            NutrientRing(label: "Sugar",    value: facts.sugarG        * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.sugarG,        color: Color(red: 0.95, green: 0.25, blue: 0.25), index: 4) { selectedNutrient = NutrientKnowledge.all["Sugar"] }
+            NutrientRing(label: "Sodium",   value: facts.sodiumMg      * servingsMultiplier, unit: "mg",   daily: NutritionDailyValues.sodiumMg,      color: Color(red: 0.95, green: 0.80, blue: 0.15), index: 5) { selectedNutrient = NutrientKnowledge.all["Sodium"] }
+            NutrientRing(label: "Fiber",    value: facts.fiberG        * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.fiberG,        color: Color(red: 0.30, green: 0.80, blue: 0.55), index: 6) { selectedNutrient = NutrientKnowledge.all["Fiber"] }
+            NutrientRing(label: "Sat. Fat", value: facts.saturatedFatG * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.saturatedFatG, color: Color(red: 0.95, green: 0.45, blue: 0.15), index: 7) { selectedNutrient = NutrientKnowledge.all["Sat. Fat"] }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 16)
         .transition(.opacity.combined(with: .move(edge: .top)))
 
         HStack {
-            Text("* % Daily Values based on a 2,000 calorie diet")
+            Image(systemName: "info.circle")
+                .font(.system(size: 9))
+                .foregroundStyle(.white.opacity(0.35))
+            Text("Tap any nutrient to learn more  ·  % Daily Values based on a 2,000 calorie diet")
                 .font(.system(size: 9))
                 .foregroundStyle(.white.opacity(0.28))
             Spacer()
@@ -122,6 +129,7 @@ private struct NutrientRing: View {
     let daily: Double
     let color: Color
     let index: Int
+    let onTap: () -> Void
 
     @State private var progress: Double = 0
 
@@ -129,42 +137,45 @@ private struct NutrientRing: View {
     private var percentLabel: String { "\(Int(target * 100))%*" }
 
     var body: some View {
-        VStack(spacing: 5) {
-            ZStack {
-                // Track
-                Circle()
-                    .stroke(.white.opacity(0.07), lineWidth: 7)
-                    .frame(width: 60, height: 60)
+        Button(action: onTap) {
+            VStack(spacing: 5) {
+                ZStack {
+                    // Track
+                    Circle()
+                        .stroke(.white.opacity(0.07), lineWidth: 7)
+                        .frame(width: 60, height: 60)
 
-                // Progress arc
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(color, style: StrokeStyle(lineWidth: 7, lineCap: .round))
-                    .frame(width: 60, height: 60)
-                    .rotationEffect(.degrees(-90))
+                    // Progress arc
+                    Circle()
+                        .trim(from: 0, to: progress)
+                        .stroke(color, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                        .frame(width: 60, height: 60)
+                        .rotationEffect(.degrees(-90))
 
-                // Center label
-                VStack(spacing: 1) {
-                    Text(formattedValue)
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.65)
-                    Text(unit)
-                        .font(.system(size: 7))
-                        .foregroundStyle(.white.opacity(0.4))
+                    // Center label
+                    VStack(spacing: 1) {
+                        Text(formattedValue)
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.65)
+                        Text(unit)
+                            .font(.system(size: 7))
+                            .foregroundStyle(.white.opacity(0.4))
+                    }
                 }
+
+                Text(label)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(1)
+
+                Text(percentLabel)
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(color.opacity(0.85))
             }
-
-            Text(label)
-                .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(.white.opacity(0.7))
-                .lineLimit(1)
-
-            Text(percentLabel)
-                .font(.system(size: 8, weight: .semibold))
-                .foregroundStyle(color.opacity(0.85))
         }
+        .buttonStyle(.plain)
         .onAppear {
             // Stagger each ring by 70 ms; spring handles the motion
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.07) {

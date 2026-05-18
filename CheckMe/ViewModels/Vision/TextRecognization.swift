@@ -193,13 +193,18 @@ struct TextRecognizer {
         // "contains:" / "may contain:" are allergen statements, NOT ingredient headers here.
         // "and less than" is intentionally absent — it is PART of the ingredient list.
         let cutMarkers: [String] = [
+            // Nutrition panel headers (English + French variants) — always a hard stop
             "nutrition facts", "valeur nutritive", "nutrition information",
-            "informations nutritionnelles",
+            "informations nutritionnelles", "tableau de la valeur nutritive",
+            "nutritional information", "nutritional facts",
             "vitamins and minerals", "vitamines et minéraux",
             "% daily value", "% valeur quotidienne",
             "serving size", "servings per container",
             "per serving", "par portion",
             "calories",                           // Nutrition panel always starts here
+            // French ingredient header signals the bilingual second block — stop before it
+            "ingrédients:", "ingrédient:", "ingrédients :", "ingrédient :",
+            "ingrédients\n", "ingrédient\n",
             "allergen information", "allergen statement", "allergen advice",
             "may contain", "peut contenir",       // Allergen warnings
             "contains: ",                         // Allergen "Contains: milk, wheat"
@@ -266,8 +271,15 @@ struct TextRecognizer {
 
         // Cut when the ingredient section or unrelated boilerplate begins
         let cutMarkers: [String] = [
-            "ingredients:", "ingredient:", "ingrédients:", "ingrédient:",
+            // English ingredient headers — stop before the ingredient list
+            "ingredients:", "ingredient:", "ingredients :", "ingredient :",
             "ingredients\n", "ingredient\n",
+            "made with:", "made from:",
+            // French ingredient headers — stop before the French block on bilingual labels
+            "ingrédients:", "ingrédient:", "ingrédients :", "ingrédient :",
+            "ingrédients\n", "ingrédient\n",
+            "composition:", "composé de:",
+            // Boilerplate
             "distributed by", "manufactured by", "produced by", "packaged by",
             "best before", "meilleur avant",
             "upc", "www.", "visit us"

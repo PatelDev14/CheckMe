@@ -80,12 +80,19 @@ final class NutritionViewModel {
             let rawText = try await TextRecognizer.recognizeText(from: image, preprocess: false)
             guard !rawText.isEmpty else { throw RecognitionError.noTextFound }
 
-            // Pass the full OCR text straight to the AI — skipping extractNutritionBlock
-            // avoids the fragile header-keyword matching that was the main source of false
-            // "not detected" errors. The AI's @Guide descriptions are enough to parse it.
+            // Smart region extraction: try to isolate the nutrition panel first.
+            // If the extractor finds a substantial block (> 80 chars), use it — this removes
+            // marketing copy, net weight, and bilingual ingredient text that can confuse parsing.
+            // If not found (e.g. user cropped away the "Nutrition Facts" header), fall back to
+            // the full raw text so the AI can still work from the numbers alone.
+            let nutritionBlock: String = {
+                let extracted = TextRecognizer.extractNutritionBlock(from: rawText)
+                return extracted.count > 80 ? extracted : rawText
+            }()
+
             phase = .extractingNutrition
-            async let nameTask      = extractProductName(from: rawText)
-            async let nutritionTask = parseNutritionFacts(from: rawText, fullText: rawText)
+            async let nameTask      = extractProductName(from: rawText)    // name from full text
+            async let nutritionTask = parseNutritionFacts(from: nutritionBlock, fullText: rawText)
             let (rawName, extraction) = try await (nameTask, nutritionTask)
 
             let productName = validateProductName(rawName, against: rawText)
