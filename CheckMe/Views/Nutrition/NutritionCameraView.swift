@@ -82,9 +82,22 @@ struct NutritionCameraView: View {
         }
         .onDisappear { camera.stop() }
         .onChange(of: viewModel?.phase) { _, newPhase in
-            if let phase = newPhase, case .complete = phase, let scan = viewModel?.currentScan {
+            guard let phase = newPhase else { return }
+            // Navigate away on success
+            if case .complete = phase, let scan = viewModel?.currentScan {
                 onScanComplete(scan)
                 dismiss()
+                return
+            }
+            // Stop the camera session while AI is running — the Neural Engine is shared
+            // between AVFoundation and FoundationModels. Keeping the camera running during
+            // processing causes resource contention that makes retry attempts fail even with
+            // a clean image. Stopping frees the Neural Engine for the AI pipeline.
+            if phase.isProcessing {
+                camera.stop()
+            } else {
+                // idle (fresh start or after vm.reset()), failed (show error, ready to retry)
+                camera.start()
             }
         }
     }

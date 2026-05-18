@@ -20,7 +20,7 @@ struct OnboardingView: View {
     @State private var step: Int
     @State private var didTapButton = false   // distinguishes button tap vs swipe
 
-    private let totalSteps = 5
+    private let totalSteps = 6
 
     init(startingStep: Int = 0, isEditing: Bool = false) {
         self.startingStep = startingStep
@@ -53,7 +53,8 @@ struct OnboardingView: View {
                     FoodRestrictionsStep().tag(1)
                     FoodAllergiesAndGutStep().tag(2)
                     SkinProfileStep().tag(3)
-                    ExtraNotesStep().tag(4)
+                    HealthGoalsStep().tag(4)
+                    ExtraNotesStep().tag(5)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .animation(.easeInOut, value: step)
@@ -278,7 +279,39 @@ private struct SkinProfileStep: View {
     }
 }
 
-// MARK: - Step 5: Extra Notes
+// MARK: - Step 5: Health Goals
+
+private struct HealthGoalsStep: View {
+    @Environment(UserProfileStore.self) private var store
+
+    var body: some View {
+        @Bindable var store = store
+        OnboardingStepContainer {
+            Image(systemName: "target")
+                .font(.system(size: 56))
+                .foregroundStyle(.white)
+
+            VStack(spacing: 8) {
+                Text("Your Health Goals")
+                    .font(.title2).fontWeight(.bold).foregroundStyle(.white)
+                Text("Helps us tailor every analysis to what matters to you.")
+                    .font(.subheadline).foregroundStyle(.white.opacity(0.8))
+                    .multilineTextAlignment(.center)
+            }
+
+            SelectionGrid(
+                options: ProfileOptions.healthGoals,
+                selected: store.profile.healthGoals
+            ) { toggle($0, in: &store.profile.healthGoals) }
+        }
+    }
+
+    private func toggle(_ item: String, in list: inout [String]) {
+        if list.contains(item) { list.removeAll { $0 == item } } else { list.append(item) }
+    }
+}
+
+// MARK: - Step 6: Extra Notes
 
 private struct ExtraNotesStep: View {
     @Environment(UserProfileStore.self) private var store

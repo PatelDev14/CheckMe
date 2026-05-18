@@ -46,6 +46,9 @@ struct IngredientsListView: View {
                     VStack(spacing: 16) {
                         capturedPhotoCard
 
+                        // Profile attribution — only when user has set food-relevant profile data
+                        ProfileAttributionBanner(tags: profileStore.profile.foodProfileTags)
+
                         // Main gut prediction card
                         gutPredictionCard
 

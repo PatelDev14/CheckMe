@@ -34,13 +34,16 @@ struct NutritionResultsView: View {
                             servingPickerCard(nutrition)
                             NutritionFactsCard(facts: nutrition, servingsMultiplier: servingsMultiplier, startsExpanded: true)
 
-                            if !nutrition.fillLayerNames.isEmpty {
-                                ContainerFillView(
-                                    containerType: nutrition.containerType,
-                                    layerNames: nutrition.fillLayerNames,
-                                    layerPercents: nutrition.fillLayerPercents
-                                )
-                            }
+                            // ContainerFillView temporarily hidden — re-enable when design is finalised
+                            // if !nutrition.fillLayerNames.isEmpty {
+                            //     ContainerFillView(
+                            //         containerType: nutrition.containerType,
+                            //         layerNames: nutrition.fillLayerNames,
+                            //         layerPercents: nutrition.fillLayerPercents,
+                            //         gramValues: compositionGrams(from: nutrition),
+                            //         allergens: nutrition.allergens
+                            //     )
+                            // }
 
                             MicronutrientsView(nutrition: nutrition, servingsMultiplier: servingsMultiplier)
 
@@ -315,5 +318,19 @@ struct NutritionResultsView: View {
 
     private func formatMultiplier(_ v: Double) -> String {
         v == v.rounded() ? "\(Int(v))" : String(format: "%.1f", v)
+    }
+
+    /// Builds the gram-value dictionary that ContainerFillView uses for its legend.
+    /// Keys match the layer names produced by NutritionViewModel.computeCompositionLayers().
+    private func compositionGrams(from n: SavedNutritionFacts) -> [String: Double] {
+        let starch = max(0, n.totalCarbsG - n.sugarG - n.fiberG)
+        return [
+            "Water":   0,               // water quantity is estimated — omit from gram display
+            "Sugar":   n.sugarG,
+            "Net Carbs": starch,
+            "Fat":     n.totalFatG,
+            "Protein": n.proteinG,
+            "Fiber":   n.fiberG,
+        ]
     }
 }

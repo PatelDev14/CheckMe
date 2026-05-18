@@ -4,12 +4,13 @@ import Observation
 // MARK: - User Profile Data
 
 struct UserProfile: Codable {
-    var foodRestrictions: [String] = []
-    var foodAllergies: [String]    = []
+    var foodRestrictions: [String]    = []
+    var foodAllergies: [String]       = []
     var digestiveConditions: [String] = []
-    var skinType: String           = ""
-    var skinConditions: [String]   = []
-    var extraNotes: String         = ""
+    var skinType: String              = ""
+    var skinConditions: [String]      = []
+    var healthGoals: [String]         = []
+    var extraNotes: String            = ""
 
     var isEmpty: Bool {
         foodRestrictions.isEmpty &&
@@ -17,12 +18,54 @@ struct UserProfile: Codable {
         digestiveConditions.isEmpty &&
         skinType.isEmpty &&
         skinConditions.isEmpty &&
+        healthGoals.isEmpty &&
         extraNotes.isEmpty
     }
 
-    // MARK: - AI prompt context builders
+    // MARK: - Profile Completeness (5 trackable sections)
 
-    /// Injects user food context into an AI prompt string
+    static let totalSections = 5
+
+    /// Names of sections the user has filled in at least partially.
+    var completedSections: [String] {
+        var s: [String] = []
+        if !foodRestrictions.isEmpty                          { s.append("Dietary") }
+        if !foodAllergies.isEmpty || !digestiveConditions.isEmpty { s.append("Gut Health") }
+        if !skinType.isEmpty || !skinConditions.isEmpty       { s.append("Skin") }
+        if !healthGoals.isEmpty                               { s.append("Goals") }
+        if !extraNotes.isEmpty                                { s.append("Notes") }
+        return s
+    }
+
+    var completenessScore: Int { completedSections.count }
+
+    // MARK: - Attribution Tags (shown in result views)
+
+    /// Compact tags shown as "Analysis used: IBS, Gluten-Free" in food scan results.
+    var foodProfileTags: [String] {
+        var tags: [String] = []
+        tags += foodRestrictions
+        tags += foodAllergies
+        tags += digestiveConditions
+        tags += healthGoals
+        return tags
+    }
+
+    /// Compact tags shown in personal care scan results.
+    var skinProfileTags: [String] {
+        var tags: [String] = []
+        if !skinType.isEmpty { tags.append(skinType) }
+        tags += skinConditions
+        // Include goals relevant to skin/inflammation
+        tags += healthGoals.filter {
+            let l = $0.lowercased()
+            return l.contains("skin") || l.contains("inflam")
+        }
+        return tags
+    }
+
+    // MARK: - AI Prompt Context Builders
+
     var foodPromptContext: String {
         var parts: [String] = []
         if !foodRestrictions.isEmpty {
@@ -34,13 +77,15 @@ struct UserProfile: Codable {
         if !digestiveConditions.isEmpty {
             parts.append("Digestive conditions: \(digestiveConditions.joined(separator: ", ")).")
         }
+        if !healthGoals.isEmpty {
+            parts.append("Health goals: \(healthGoals.joined(separator: ", ")).")
+        }
         if !extraNotes.isEmpty {
-            parts.append("Extra notes from user: \(extraNotes)")
+            parts.append("Extra notes: \(extraNotes)")
         }
         return parts.isEmpty ? "" : "User profile — \(parts.joined(separator: " "))"
     }
 
-    /// Injects user skin context into an AI prompt string
     var skinPromptContext: String {
         var parts: [String] = []
         if !skinType.isEmpty {
@@ -49,8 +94,11 @@ struct UserProfile: Codable {
         if !skinConditions.isEmpty {
             parts.append("Skin conditions: \(skinConditions.joined(separator: ", ")).")
         }
+        if !healthGoals.isEmpty {
+            parts.append("Health goals: \(healthGoals.joined(separator: ", ")).")
+        }
         if !extraNotes.isEmpty {
-            parts.append("Extra notes from user: \(extraNotes)")
+            parts.append("Extra notes: \(extraNotes)")
         }
         return parts.isEmpty ? "" : "User profile — \(parts.joined(separator: " "))"
     }
@@ -103,5 +151,10 @@ enum ProfileOptions {
     static let skinConditions = [
         "Acne-Prone", "Eczema", "Rosacea",
         "Psoriasis", "Hyperpigmentation", "Perioral Dermatitis"
+    ]
+    static let healthGoals = [
+        "Lose Weight", "Build Muscle", "Improve Gut Health",
+        "Manage Allergies", "Reduce Inflammation", "Improve Skin Health",
+        "Increase Energy", "Eat Cleaner"
     ]
 }

@@ -27,6 +27,7 @@ struct SkinResultsView: View {
 
                     VStack(spacing: 16) {
                         capturedPhotoCard
+                        ProfileAttributionBanner(tags: profileStore.profile.skinProfileTags)
                         skinPredictionCard
                         ingredientsSection
                     }

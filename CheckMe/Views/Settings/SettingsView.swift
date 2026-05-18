@@ -74,7 +74,42 @@ struct SettingsView: View {
                 }
 
                 // MARK: Your Profile
-                Section("Your Profile") {
+                Section {
+                    // Completeness indicator
+                    let score = profileStore.profile.completenessScore
+                    let total = UserProfile.totalSections
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Profile Completeness")
+                                .font(.subheadline).fontWeight(.medium)
+                            Spacer()
+                            Text("\(score) of \(total) complete")
+                                .font(.caption).fontWeight(.semibold)
+                                .foregroundStyle(score == total ? .green : .secondary)
+                        }
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color(.systemFill))
+                                    .frame(height: 6)
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(score == total ? Color.green : Color.accentColor)
+                                    .frame(width: geo.size.width * CGFloat(score) / CGFloat(total), height: 6)
+                                    .animation(.spring(response: 0.4), value: score)
+                            }
+                        }
+                        .frame(height: 6)
+
+                        if score < total {
+                            let missing = ["Dietary", "Gut Health", "Skin", "Goals", "Notes"]
+                                .filter { !profileStore.profile.completedSections.contains($0) }
+                            Text("Missing: \(missing.joined(separator: ", "))")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+
                     ProfileRow(
                         label: "Dietary Preferences",
                         value: profileStore.profile.foodRestrictions.isEmpty ? nil
@@ -92,10 +127,18 @@ struct SettingsView: View {
                     ) { editStep = 3; showEditSheet = true }
 
                     ProfileRow(
+                        label: "Health Goals",
+                        value: profileStore.profile.healthGoals.isEmpty ? nil
+                            : profileStore.profile.healthGoals.joined(separator: ", ")
+                    ) { editStep = 4; showEditSheet = true }
+
+                    ProfileRow(
                         label: "Extra Notes",
                         value: profileStore.profile.extraNotes.isEmpty ? nil
                             : profileStore.profile.extraNotes
-                    ) { editStep = 4; showEditSheet = true }
+                    ) { editStep = 5; showEditSheet = true }
+                } header: {
+                    Text("Your Profile")
                 }
 
                 // MARK: Apple Intelligence
