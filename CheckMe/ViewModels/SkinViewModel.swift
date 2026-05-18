@@ -244,38 +244,45 @@ final class SkinViewModel {
         let ingredientList = ingredients.joined(separator: ", ")
 
         let systemInstructions = context.isEmpty
-            ? "You are a dermatology-informed skincare ingredient analyst. Provide factual information only."
+            ? "You are a dermatology-informed skincare ingredient analyst. Provide neutral, factual overviews only. Never flag or warn about ingredients when no user profile is provided."
             : "You are a dermatology-informed skincare ingredient analyst evaluating a product for a specific user. \(context)"
 
         let session = LanguageModelSession(instructions: systemInstructions)
+
+        let noProfileRules = """
+        CRITICAL — No user skin profile is set:
+        - rating MUST start with exactly "Skin Friendly" followed by one neutral sentence describing what the product does.
+        - irritants MUST be an empty array. Do NOT list any ingredients here.
+        - cautions MUST be an empty array. Do NOT list any ingredients here.
+        - tip: One friendly usage tip (not a health or safety warning).
+        Do NOT flag, warn about, or mention irritants, allergens, or risks of any kind.
+        """
+
+        let hasProfileRules = """
+        RATING — use EXACTLY one of these phrases:
+        - "Skin Friendly" — minimal concerns for this user, generally well-tolerated
+        - "Moderate Concern" — 1-2 ingredients worth being cautious about for their profile
+        - "High Concern" — known irritants, allergens, or ingredients conflicting with their conditions
+        Follow with one sentence explaining why, tailored to their skin profile.
+
+        IRRITANTS — ingredients this user should avoid based on their stated skin conditions/concerns.
+        Max 5. Empty array if none apply.
+
+        CAUTIONS — mild concerns specific to this user's skin type/conditions.
+        Max 5. Empty array if none apply.
+
+        TIP — one practical tip personalised to their skin profile.
+        """
+
         let prompt = """
-        Analyze this skincare product for skin compatibility.
+        Analyze this personal care product.
 
         Product: \(productName)
         Ingredients: \(ingredientList)
 
-        User Skin Profile: \(context.isEmpty ? "NO PROFILE PROVIDED" : context)
+        User Skin Profile: \(context.isEmpty ? "NONE — user has not completed their skin profile" : context)
 
-        RATING — use EXACTLY one of these phrases:
-        - "Skin Friendly" — minimal concerns, generally well-tolerated
-        - "Moderate Concern" — 1-2 ingredients worth being cautious about
-        - "High Concern" — known irritants, allergens, or ingredients conflicting with user's conditions
-        Follow with one sentence explaining why.
-
-        IRRITANTS — ingredients the user should avoid:
-        - Flag: known allergens for their conditions, strong acids at irritating concentrations,
-          essential oils for sensitive/rosacea skin, formaldehyde releasers, MI/MCI preservatives.
-        - If no user profile: flag universally problematic ingredients (strong irritants, known allergens).
-        - Max 5. Empty array if none.
-
-        CAUTIONS — mild concerns:
-        - Comedogenic ingredients for acne-prone skin (coconut oil, isopropyl myristate, etc.)
-        - Synthetic fragrance / parfum for sensitive skin
-        - High-alcohol formulations for dry skin
-        - Common sensitizers even if not severe
-        - Max 5. Empty array if none.
-
-        TIP — one practical tip for using this product safely given their skin profile.
+        \(context.isEmpty ? noProfileRules : hasProfileRules)
         """
         let result = try await session.respond(to: prompt, generating: SkinPrediction.self)
         return result.content
@@ -332,7 +339,16 @@ final class SkinViewModel {
                 productName: scan.itemName,
                 ingredients: scan.ingredients
             )
-            scan.skinPrediction = SavedSkinPrediction(from: prediction)
+
+            // Delete the old SwiftData object before inserting the replacement.
+            // Without this, the old record stays orphaned in the context and SwiftData
+            // may not persist the newly assigned relationship on the first save attempt.
+            if let old = scan.skinPrediction { modelContext.delete(old) }
+
+            let newPrediction = SavedSkinPrediction(from: prediction)
+            modelContext.insert(newPrediction)
+            scan.skinPrediction = newPrediction
+
             try modelContext.save()
             currentScan = scan
             phase = .complete

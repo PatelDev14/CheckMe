@@ -11,20 +11,28 @@ import SwiftData
 struct ContentView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var showOnboarding = false
+    @Environment(ThemeManager.self) private var themeManager
 
     var body: some View {
-        TabView {
-            Tab("Food", systemImage: "fork.knife") {
-                FoodScanView()
-            }
-            Tab("Nutrition", systemImage: "chart.pie.fill") {
-                NutritionScanView()
-            }
-            Tab("Personal Care", systemImage: "sparkles") {
-                SkinScanView()
-            }
-            Tab("Settings", systemImage: "gear") {
-                SettingsView()
+        ZStack {
+            // Global gradient background — sits behind the TabView so every screen
+            // gets a consistent subtle tinted gradient instead of a flat dark solid.
+            themeManager.selectedTheme.backgroundGradient
+                .ignoresSafeArea()
+
+            TabView {
+                Tab("Food", systemImage: "fork.knife") {
+                    FoodScanView()
+                }
+                Tab("Nutrition", systemImage: "chart.pie.fill") {
+                    NutritionScanView()
+                }
+                Tab("Personal Care", systemImage: "sparkles") {
+                    SkinScanView()
+                }
+                Tab("Settings", systemImage: "gear") {
+                    SettingsView()
+                }
             }
         }
         .fullScreenCover(isPresented: $showOnboarding) {

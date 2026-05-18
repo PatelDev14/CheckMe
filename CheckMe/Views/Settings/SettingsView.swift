@@ -16,29 +16,61 @@ struct SettingsView: View {
     @State private var editStep: Int = 1
 
     var body: some View {
-        @Bindable var themeManager = themeManager
-
-        return NavigationStack {
+        NavigationStack {
             List {
 
                 // MARK: Appearance
-                Section("Appearance") {
-                    ForEach(AppTheme.allCases, id: \.self) { theme in
-                        Button {
-                            themeManager.selectedTheme = theme
-                        } label: {
-                            HStack(spacing: 14) {
-                                theme.swatchView
-                                Text(theme.displayName)
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                if themeManager.selectedTheme == theme {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(.blue)
+                Section {
+                    // Compact theme dropdown with small gradient swatch
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Theme")
+                            .font(.subheadline).fontWeight(.medium)
+
+                        Menu {
+                            ForEach(AppTheme.allCases, id: \.self) { theme in
+                                Button {
+                                    withAnimation(.spring(response: 0.3)) {
+                                        themeManager.selectedTheme = theme
+                                    }
+                                } label: {
+                                    if themeManager.selectedTheme == theme {
+                                        Label(theme.displayName, systemImage: "checkmark")
+                                    } else {
+                                        Text(theme.displayName)
+                                    }
                                 }
                             }
+                        } label: {
+                            HStack(spacing: 10) {
+                                RoundedRectangle(cornerRadius: 5)
+                                    .fill(themeManager.selectedTheme.swatchGradient)
+                                    .frame(width: 36, height: 22)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 5)
+                                            .stroke(Color(.separator), lineWidth: 0.5)
+                                    )
+                                Text(themeManager.selectedTheme.displayName)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
+                            .background(Color(.secondarySystemGroupedBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color(.separator), lineWidth: 0.5)
+                            )
                         }
                     }
+                    .padding(.vertical, 2)
+
+                } header: {
+                    Text("Appearance")
                 }
 
                 // MARK: Your Profile
@@ -55,7 +87,7 @@ struct SettingsView: View {
                     ) { editStep = 2; showEditSheet = true }
 
                     ProfileRow(
-                        label: "Skin Profile",
+                        label: "Personal Care Profile",
                         value: combinedSkinValue
                     ) { editStep = 3; showEditSheet = true }
 
@@ -104,7 +136,7 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Profile Row with inline Edit
+// MARK: - Profile Row
 
 private struct ProfileRow: View {
     let label: String
