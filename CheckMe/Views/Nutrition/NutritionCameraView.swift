@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
 
 // Full-screen camera for scanning a Nutrition Facts panel.
 // Mirrors SkinCameraView but uses NutritionViewModel.
@@ -18,6 +19,7 @@ struct NutritionCameraView: View {
     @State private var focusPoint: CGPoint = .zero
     @State private var capturedImageForPreview: UIImage?
     @State private var zoomScale: CGFloat = 1.0
+    @State private var selectedPhoto: PhotosPickerItem?
 
     var body: some View {
         ZStack {
@@ -141,13 +143,42 @@ struct NutritionCameraView: View {
                 .font(.subheadline).fontWeight(.medium)
                 .foregroundStyle(.white.opacity(0.85))
 
-            Button { triggerCapture() } label: {
-                ZStack {
-                    Circle().stroke(.white.opacity(0.6), lineWidth: 3).frame(width: 78, height: 78)
-                    Circle().fill(.white).frame(width: 62, height: 62)
+            HStack {
+                // Photo library picker — left of shutter
+                PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                    Image(systemName: "photo.on.rectangle")
+                        .font(.title2)
+                        .foregroundStyle(.white)
+                        .frame(width: 54, height: 54)
+                        .background(Circle().fill(.black.opacity(0.4)))
                 }
+                .onChange(of: selectedPhoto) { _, item in
+                    guard let item else { return }
+                    Task {
+                        if let data = try? await item.loadTransferable(type: Data.self),
+                           let image = UIImage(data: data) {
+                            await MainActor.run { capturedImageForPreview = image }
+                        }
+                        await MainActor.run { selectedPhoto = nil }
+                    }
+                }
+
+                Spacer()
+
+                Button { triggerCapture() } label: {
+                    ZStack {
+                        Circle().stroke(.white.opacity(0.6), lineWidth: 3).frame(width: 78, height: 78)
+                        Circle().fill(.white).frame(width: 62, height: 62)
+                    }
+                }
+                .disabled(viewModel?.phase.isProcessing ?? false)
+
+                Spacer()
+
+                // Balancing spacer so shutter stays centred
+                Color.clear.frame(width: 54, height: 54)
             }
-            .disabled(viewModel?.phase.isProcessing ?? false)
+            .padding(.horizontal, 40)
         }
         .padding(.bottom, 48)
     }

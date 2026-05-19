@@ -32,6 +32,9 @@ class ScanModel: Identifiable {
     var skinPrediction: SavedSkinPrediction?
 
     @Relationship(deleteRule: .cascade)
+    var skinCategories: SavedSkinCategories?
+
+    @Relationship(deleteRule: .cascade)
     var nutritionFacts: SavedNutritionFacts?
 
     init(itemName: String, ingredients: [String], category: HealthCategory = .food) {
@@ -208,4 +211,113 @@ struct SkinPrediction {
 
     @Guide(description: "One practical skincare tip for using products with this ingredient profile.")
     var tip: String
+}
+
+// MARK: - Skin Ingredient Categories (Persisted + AI-Generated)
+
+/// AI classifies every ingredient into one functional skincare category.
+/// Stored as a JSON-encoded [String:[String]] in a single scalar field to avoid
+/// SwiftData complexity — decoded on read via SavedSkinCategories.decoded().
+@Model
+class SavedSkinCategories {
+    /// JSON-encoded dictionary: category name → [ingredient name]
+    var categoriesJSON: String = "{}"
+    var timestamp: Date = Date.now
+
+    init(from result: SkinIngredientCategories) {
+        let dict: [String: [String]] = [
+            "Actives":      result.actives,
+            "Humectants":   result.humectants,
+            "Emollients":   result.emollients,
+            "Occlusives":   result.occlusives,
+            "Preservatives":result.preservatives,
+            "Fragrances":   result.fragrances,
+            "Surfactants":  result.surfactants,
+            "Other":        result.other,
+        ]
+        if let data = try? JSONEncoder().encode(dict),
+           let str  = String(data: data, encoding: .utf8) {
+            categoriesJSON = str
+        }
+    }
+
+    /// Decode back to [category: [ingredient]] — empty dict on failure.
+    func decoded() -> [(category: String, ingredients: [String])] {
+        guard let data = categoriesJSON.data(using: .utf8),
+              let dict = try? JSONDecoder().decode([String: [String]].self, from: data)
+        else { return [] }
+
+        // Fixed display order
+        let order = ["Actives", "Humectants", "Emollients", "Occlusives",
+                     "Preservatives", "Fragrances", "Surfactants", "Other"]
+        return order.compactMap { key in
+            guard let items = dict[key], !items.isEmpty else { return nil }
+            return (category: key, ingredients: items)
+        }
+    }
+}
+
+@Generable
+struct SkinIngredientCategories {
+    @Guide(description: """
+        Ingredients that are bioactive — they change skin chemistry or target specific concerns. \
+        Examples: retinol, niacinamide, vitamin C (ascorbic acid), AHA (glycolic acid, lactic acid), \
+        BHA (salicylic acid), azelaic acid, bakuchiol, peptides, growth factors, collagen, hyaluronic acid (when used as active). \
+        Return empty array if none.
+        """)
+    var actives: [String]
+
+    @Guide(description: """
+        Ingredients that draw moisture into the skin. \
+        Examples: glycerin, hyaluronic acid, sodium PCA, aloe vera, panthenol, honey, urea, \
+        propylene glycol, sorbitol, amino acids. Return empty array if none.
+        """)
+    var humectants: [String]
+
+    @Guide(description: """
+        Ingredients that soften and smooth the skin by filling gaps in the lipid barrier. \
+        Examples: squalane, jojoba oil, rosehip oil, cetyl alcohol, cetearyl alcohol, \
+        isopropyl myristate, caprylic/capric triglyceride, shea butter, fatty acids. \
+        Return empty array if none.
+        """)
+    var emollients: [String]
+
+    @Guide(description: """
+        Ingredients that form a barrier on the skin surface to prevent water loss. \
+        Examples: petrolatum, dimethicone, cyclomethicone, beeswax, lanolin, mineral oil, \
+        zinc oxide, titanium dioxide. Return empty array if none.
+        """)
+    var occlusives: [String]
+
+    @Guide(description: """
+        Ingredients that prevent microbial growth and extend product shelf life. \
+        Examples: phenoxyethanol, parabens (methylparaben, propylparaben), benzyl alcohol, \
+        ethylhexylglycerin, sodium benzoate, potassium sorbate, DMDM hydantoin, \
+        formaldehyde releasers, caprylyl glycol. Return empty array if none.
+        """)
+    var preservatives: [String]
+
+    @Guide(description: """
+        Fragrance compounds — both synthetic and natural. \
+        Examples: parfum, fragrance, linalool, limonene, citronellol, geraniol, benzyl benzoate, \
+        eugenol, cinnamal, essential oils (lavender oil, rose oil, peppermint oil). \
+        Return empty array if none.
+        """)
+    var fragrances: [String]
+
+    @Guide(description: """
+        Ingredients that cleanse by reducing surface tension (mainly in rinse-off products). \
+        Examples: sodium lauryl sulfate (SLS), sodium laureth sulfate (SLES), cocamidopropyl betaine, \
+        coco-glucoside, decyl glucoside, ammonium lauryl sulfate. Return empty array if none.
+        """)
+    var surfactants: [String]
+
+    @Guide(description: """
+        Any ingredient that does not fit the above categories. \
+        Includes: thickeners (carbomer, xanthan gum), pH adjusters (citric acid, sodium hydroxide), \
+        chelating agents (EDTA), colorants, sunscreen filters (avobenzone, oxybenzone), \
+        emulsifiers, solvents (water, alcohol denat), and anything uncategorised. \
+        Return empty array if none.
+        """)
+    var other: [String]
 }

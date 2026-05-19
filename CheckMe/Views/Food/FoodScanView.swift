@@ -15,6 +15,7 @@ struct FoodScanView: View {
 
     @Environment(ThemeManager.self) private var themeManager
     @Environment(\.modelContext) private var modelContext
+    @Environment(UserProfileStore.self) private var profileStore
 
     @State private var showCamera = false
     @State private var lastScannedScan: ScanModel?
@@ -220,27 +221,132 @@ struct FoodScanView: View {
         scans.filter { $0.gutPrediction?.prediction.lowercased().contains("high risk") == true }.count
     }
 
-    // MARK: - Empty States
+    // MARK: - Empty State (rich onboarding version)
+
+    @State private var showSamplePreview = false
 
     private var emptyState: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            Image(systemName: "camera.viewfinder")
-                .font(.system(size: 64))
-                .foregroundStyle(themeManager.selectedTheme.colors.accent.opacity(0.7))
-            VStack(spacing: 8) {
-                Text("No Food Scans Yet")
-                    .font(.title2).fontWeight(.bold)
-                    .foregroundStyle(.white)
-                Text("Scan an ingredient label to see if it's right for your gut.")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.6))
-                    .multilineTextAlignment(.center)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 20) {
+                // Hero
+                VStack(spacing: 10) {
+                    Image(systemName: "fork.knife.circle.fill")
+                        .font(.system(size: 60))
+                        .foregroundStyle(themeManager.selectedTheme.colors.accent)
+                    Text("Know What You're Eating")
+                        .font(.title2).fontWeight(.bold).foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                    Text("Scan any ingredient label for instant gut-health analysis personalised to you.")
+                        .font(.subheadline).foregroundStyle(.white.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 32)
+
+                // Mock label preview (like the corn cereal screenshot)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Example label to scan")
+                        .font(.caption).fontWeight(.medium)
+                        .foregroundStyle(.white.opacity(0.4))
+                        .padding(.bottom, 8)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Ingredients:")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.black)
+                        Text("Whole grain corn, Sugars (sugar and/or golden sugar, corn syrup, golden syrup), Degermed corn meal, High monounsaturated canola and/or sunflower oil, Salt, Calcium carbonate, Caramel, Monoglycerides, Natural flavour (includes stevia leaf extract), Vitamins and minerals: Iron, Niacinamide (vitamin B3), Folate.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.black.opacity(0.75))
+                            .lineLimit(5)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black.opacity(0.1), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+                }
+
+                // What to scan
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("What to scan")
+                        .font(.headline).fontWeight(.semibold).foregroundStyle(.white)
+
+                    ForEach([
+                        ("bag.fill",              "Packaged Snacks",         "Chips, crackers, cookies — check for hidden triggers"),
+                        ("mug.fill",              "Beverages & Drinks",      "Energy drinks, juices, plant milks"),
+                        ("cart.fill",             "Supermarket Products",    "Any food with an ingredients list on the back"),
+                        ("takeoutbag.and.cup.and.straw.fill", "Ready Meals", "Frozen meals, sauces, condiments"),
+                    ], id: \.1) { icon, label, detail in
+                        HStack(spacing: 14) {
+                            Image(systemName: icon)
+                                .font(.title3)
+                                .foregroundStyle(themeManager.selectedTheme.colors.accent)
+                                .frame(width: 32)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(label).font(.subheadline).fontWeight(.medium).foregroundStyle(.white)
+                                Text(detail).font(.caption).foregroundStyle(.white.opacity(0.5))
+                            }
+                        }
+                    }
+                }
+                .padding(16)
+                .background(RoundedRectangle(cornerRadius: 16).fill(themeManager.selectedTheme.colors.surface))
+
+                // Understanding results
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Understanding your results")
+                        .font(.headline).fontWeight(.semibold).foregroundStyle(.white)
+
+                    ForEach([
+                        ("checkmark.seal.fill",          Color.green,  "Gut Friendly",   "Minimal triggers for your gut profile"),
+                        ("exclamationmark.triangle.fill", Color.orange, "Moderate Risk",  "1–2 ingredients worth monitoring"),
+                        ("xmark.octagon.fill",            Color.red,    "High Risk",      "Known triggers or allergens for your profile"),
+                    ], id: \.2) { icon, color, label, detail in
+                        HStack(spacing: 14) {
+                            Image(systemName: icon).foregroundStyle(color).frame(width: 24)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(label).font(.subheadline).fontWeight(.semibold).foregroundStyle(color)
+                                Text(detail).font(.caption).foregroundStyle(.white.opacity(0.5))
+                            }
+                        }
+                    }
+                }
+                .padding(16)
+                .background(RoundedRectangle(cornerRadius: 16).fill(themeManager.selectedTheme.colors.surface))
+
+                // See example results button
+                Button {
+                    showSamplePreview = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "eye.fill").font(.subheadline)
+                        Text("See example results")
+                            .font(.subheadline).fontWeight(.semibold)
+                        Image(systemName: "arrow.right").font(.caption)
+                    }
+                    .foregroundStyle(themeManager.selectedTheme.colors.accent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.accent.opacity(0.12)))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(themeManager.selectedTheme.colors.accent.opacity(0.35), lineWidth: 1))
+                }
+                .sheet(isPresented: $showSamplePreview) {
+                    SampleResultPreviewSheet(category: .food)
+                }
+
+                // Profile nudge — shown when food profile is empty
+                let hasNoFoodProfile = profileStore.profile.foodRestrictions.isEmpty
+                    && profileStore.profile.foodAllergies.isEmpty
+                    && profileStore.profile.digestiveConditions.isEmpty
+                if hasNoFoodProfile {
+                    FoodProfileNudgeBanner()
+                }
+
+                Spacer(minLength: 100)
             }
-            Spacer()
-            Spacer()
+            .padding(.horizontal, 20)
         }
-        .padding(.horizontal, 32)
     }
 
     private var noResultsView: some View {
@@ -398,6 +504,50 @@ private struct StatChip: View {
         .padding(.vertical, 10)
         .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(0.08)))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(color.opacity(0.15), lineWidth: 1))
+    }
+}
+
+// MARK: - Food Profile Nudge Banner
+
+struct FoodProfileNudgeBanner: View {
+    @Environment(ThemeManager.self) private var themeManager
+    @State private var showOnboarding = false
+
+    var body: some View {
+        Button { showOnboarding = true } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "person.crop.circle.badge.plus")
+                    .font(.title2)
+                    .foregroundStyle(themeManager.selectedTheme.colors.accent)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Set your food profile")
+                        .font(.subheadline).fontWeight(.semibold).foregroundStyle(.white)
+                    Text("Add your dietary preferences and allergies for personalised gut analysis.")
+                        .font(.caption).foregroundStyle(.white.opacity(0.6))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption).foregroundStyle(.white.opacity(0.3))
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(themeManager.selectedTheme.colors.accent.opacity(0.12))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(themeManager.selectedTheme.colors.accent.opacity(0.35), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingView(startingStep: 1, isEditing: true)
+                .environment(themeManager)
+        }
     }
 }
 

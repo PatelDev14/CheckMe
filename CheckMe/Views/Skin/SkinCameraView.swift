@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
 
 // Full-screen camera view for scanning skincare/cosmetic labels.
 // Mirrors CameraView.swift but uses SkinViewModel instead of IngredientsViewModel.
@@ -17,12 +18,15 @@ struct SkinCameraView: View {
     @State private var showFocusRing = false
     @State private var focusPoint: CGPoint = .zero
     @State private var capturedImageForPreview: UIImage?
-    @State private var zoomScale: CGFloat = 1.0
+    @State private var selectedPhoto: PhotosPickerItem?
+
+    // Lavender accent — consistent with the Personal Care / sparkles brand colour
+    private let skinTint = Color(red: 0.62, green: 0.45, blue: 0.95)
 
     var body: some View {
         ZStack {
             if let previewImage = capturedImageForPreview {
-                photoPreviewScreen(previewImage)
+                cropScreen(previewImage)
             } else if camera.permissionGranted {
                 GeometryReader { geo in
                     CameraPreview(session: camera.captureSession)
@@ -137,17 +141,43 @@ struct SkinCameraView: View {
                 .font(.subheadline).fontWeight(.medium)
                 .foregroundStyle(.white.opacity(0.85))
 
-            Button { triggerCapture() } label: {
-                ZStack {
-                    Circle()
-                        .stroke(.white.opacity(0.6), lineWidth: 3)
-                        .frame(width: 78, height: 78)
-                    Circle()
-                        .fill(.white)
-                        .frame(width: 62, height: 62)
+            HStack {
+                // Photo library picker — left of shutter
+                PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                    Image(systemName: "photo.on.rectangle")
+                        .font(.title2)
+                        .foregroundStyle(.white)
+                        .frame(width: 54, height: 54)
+                        .background(Circle().fill(.black.opacity(0.4)))
                 }
+                .onChange(of: selectedPhoto) { _, item in
+                    guard let item else { return }
+                    Task {
+                        if let data = try? await item.loadTransferable(type: Data.self),
+                           let image = UIImage(data: data) {
+                            await MainActor.run { capturedImageForPreview = image }
+                        }
+                        await MainActor.run { selectedPhoto = nil }
+                    }
+                }
+
+                Spacer()
+
+                // Shutter — centred
+                Button { triggerCapture() } label: {
+                    ZStack {
+                        Circle().stroke(.white.opacity(0.6), lineWidth: 3).frame(width: 78, height: 78)
+                        Circle().fill(.white).frame(width: 62, height: 62)
+                    }
+                }
+                .disabled(viewModel?.phase.isProcessing ?? false)
+
+                Spacer()
+
+                // Balancing spacer so shutter stays centred
+                Color.clear.frame(width: 54, height: 54)
             }
-            .disabled(viewModel?.phase.isProcessing ?? false)
+            .padding(.horizontal, 40)
         }
         .padding(.bottom, 48)
     }
@@ -256,82 +286,24 @@ struct SkinCameraView: View {
         }
     }
 
-    private func photoPreviewScreen(_ image: UIImage) -> some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                HStack {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.title3).fontWeight(.semibold)
-                            .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                            .background(Circle().fill(.black.opacity(0.4)))
-                    }
-                    Spacer()
-                    Button { zoomScale = min(zoomScale + 0.2, 3.0) } label: {
-                        Image(systemName: "plus.magnifyingglass")
-                            .font(.title3).foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                            .background(Circle().fill(.black.opacity(0.4)))
-                    }
-                    Button { zoomScale = max(zoomScale - 0.2, 1.0) } label: {
-                        Image(systemName: "minus.magnifyingglass")
-                            .font(.title3).foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                            .background(Circle().fill(.black.opacity(0.4)))
-                    }
-                }
-                .padding(16)
-
-                Spacer()
-
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .scaleEffect(zoomScale)
-                    .clipped()
-                    .padding(20)
-
-                Spacer()
-
-                HStack(spacing: 12) {
-                    Button {
-                        capturedImageForPreview = nil
-                        zoomScale = 1.0
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "arrow.counterclockwise")
-                            Text("Retake")
-                        }
-                        .font(.headline).fontWeight(.bold)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Capsule().fill(.white.opacity(0.2)))
-                    }
-
-                    Button {
-                        guard let vm = viewModel else { return }
-                        capturedImageForPreview = nil
-                        Task { await vm.processCapture(image) }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark")
-                            Text("Analyze")
-                        }
-                        .font(.headline).fontWeight(.bold)
-                        .foregroundStyle(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Capsule().fill(.white))
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 32)
+    private func cropScreen(_ image: UIImage) -> some View {
+        ImageCropView(
+            image: image,
+            tintColor: skinTint,
+            onCrop: { cropped in
+                guard let vm = viewModel else { return }
+                capturedImageForPreview = nil
+                Task { await vm.processCapture(cropped) }
+            },
+            onUseFull: {
+                guard let vm = viewModel else { return }
+                capturedImageForPreview = nil
+                Task { await vm.processCapture(image) }
+            },
+            onRetake: {
+                capturedImageForPreview = nil
             }
-        }
+        )
     }
 }
 
