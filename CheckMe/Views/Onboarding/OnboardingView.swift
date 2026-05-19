@@ -90,13 +90,11 @@ struct OnboardingView: View {
                 }
                 .padding(.horizontal, 28)
                 .padding(.top, 12)
-                .padding(.bottom, isEditing || step != 0 ? 52 : 12)
+                .padding(.bottom, step == 0 && !isEditing ? 8 : 52)
 
-                // Skip — only on welcome, more prominent
+                // Skip — only on welcome step, not in edit mode
                 if step == 0 && !isEditing {
-                    Button {
-                        complete()
-                    } label: {
+                    Button { complete() } label: {
                         Text("Skip for now")
                             .font(.subheadline).fontWeight(.medium)
                             .foregroundStyle(.white)
@@ -105,7 +103,7 @@ struct OnboardingView: View {
                             .clipShape(Capsule())
                             .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 1))
                     }
-                    .padding(.bottom, 44)
+                    .padding(.bottom, 60)
                 }
             }
         }

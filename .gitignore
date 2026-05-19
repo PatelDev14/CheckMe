@@ -63,6 +63,7 @@ fastlane/test_output
 # Claude Code
 .claude/worktrees/
 .claude/plans/
+CLAUDE.md
 
 # SwiftData — prevents database conflicts across branches and developers
 *.sqlite

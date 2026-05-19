@@ -11,6 +11,7 @@ struct SkinScanView: View {
 
     @Environment(ThemeManager.self) private var themeManager
     @Environment(\.modelContext) private var modelContext
+    @Environment(UserProfileStore.self) private var profileStore
 
     @State private var showCamera = false
     @State private var lastScannedScan: ScanModel?
@@ -20,6 +21,7 @@ struct SkinScanView: View {
     @State private var isSelectMode = false
     @State private var selectedIDs: Set<PersistentIdentifier> = []
     @State private var showBulkDeleteConfirm = false
+    @State private var showSamplePreview = false
 
     private var filteredScans: [ScanModel] {
         guard !searchText.isEmpty else { return scans }
@@ -189,22 +191,132 @@ struct SkinScanView: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            Image(systemName: "sparkles")
-                .font(.system(size: 64))
-                .foregroundStyle(themeManager.selectedTheme.colors.accent.opacity(0.7))
-            VStack(spacing: 8) {
-                Text("No Personal Care Scans Yet")
-                    .font(.title2).fontWeight(.bold).foregroundStyle(.white)
-                Text("Scan any personal care label — skincare, haircare, cosmetics — to check if it suits your profile.")
-                    .font(.subheadline).foregroundStyle(.white.opacity(0.6))
-                    .multilineTextAlignment(.center)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 24) {
+                // Hero
+                VStack(spacing: 12) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 60))
+                        .foregroundStyle(themeManager.selectedTheme.colors.accent)
+                    Text("Know What's On Your Skin")
+                        .font(.title2).fontWeight(.bold).foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                    Text("Scan any personal care product to see if its ingredients suit your skin type and conditions.")
+                        .font(.subheadline).foregroundStyle(.white.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 32)
+
+                // Mock skin label preview (like the NIVEA label)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Example label to scan")
+                        .font(.caption).fontWeight(.medium)
+                        .foregroundStyle(.white.opacity(0.4))
+                        .padding(.bottom, 8)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("NIVEA MEN ENERGY\nBODY WASH")
+                            .font(.system(size: 13, weight: .heavy))
+                            .foregroundStyle(.white)
+                        Divider().overlay(Color.white.opacity(0.3))
+                        Text("Ingredients/Ingrédients:")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.white)
+                        Text("Water/Eau, Sodium Laureth Sulfate, Cocamidopropyl Betaine, PEG-7 Glyceryl Cocoate, Parfum/Fragrance, Glycerin, Menthol, Polyquaternium-7, Alcohol Denat., Sodium Chloride, Citric Acid, Sodium Benzoate.")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .lineLimit(4)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(red: 0.07, green: 0.13, blue: 0.28))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.15), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.3), radius: 6, y: 2)
+                }
+
+                // What you can scan
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("What to scan")
+                        .font(.headline).fontWeight(.semibold).foregroundStyle(.white)
+
+                    let scanExamples: [(icon: String, label: String, detail: String)] = [
+                        ("drop.fill",         "Moisturisers & Serums", "Check for irritants & pore-cloggers"),
+                        ("sun.max.fill",      "Sunscreens",            "Flag filters that may irritate sensitive skin"),
+                        ("wind",              "Shampoo & Conditioner", "Detect sulfates & allergens"),
+                        ("eyebrow",           "Makeup & Foundation",   "Avoid comedogenic pigments & preservatives"),
+                    ]
+
+                    ForEach(scanExamples, id: \.label) { example in
+                        HStack(spacing: 14) {
+                            Image(systemName: example.icon)
+                                .font(.title3)
+                                .foregroundStyle(themeManager.selectedTheme.colors.accent)
+                                .frame(width: 32)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(example.label)
+                                    .font(.subheadline).fontWeight(.medium).foregroundStyle(.white)
+                                Text(example.detail)
+                                    .font(.caption).foregroundStyle(.white.opacity(0.5))
+                            }
+                        }
+                    }
+                }
+                .padding(16)
+                .background(RoundedRectangle(cornerRadius: 16).fill(themeManager.selectedTheme.colors.surface))
+
+                // What the ratings mean
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Understanding your results")
+                        .font(.headline).fontWeight(.semibold).foregroundStyle(.white)
+
+                    ForEach([
+                        ("leaf.fill",                    Color.green,  "Compatible",     "Minimal concerns for your skin profile"),
+                        ("exclamationmark.triangle.fill", Color.orange, "Moderate Concern","1–2 ingredients worth watching"),
+                        ("xmark.octagon.fill",            Color.red,    "High Concern",   "Known irritants or allergens for your skin"),
+                    ], id: \.2) { icon, color, label, detail in
+                        HStack(spacing: 14) {
+                            Image(systemName: icon).foregroundStyle(color).frame(width: 24)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(label).font(.subheadline).fontWeight(.semibold).foregroundStyle(color)
+                                Text(detail).font(.caption).foregroundStyle(.white.opacity(0.5))
+                            }
+                        }
+                    }
+                }
+                .padding(16)
+                .background(RoundedRectangle(cornerRadius: 16).fill(themeManager.selectedTheme.colors.surface))
+
+                // See example results button
+                Button {
+                    showSamplePreview = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "eye.fill").font(.subheadline)
+                        Text("See example results")
+                            .font(.subheadline).fontWeight(.semibold)
+                        Image(systemName: "arrow.right").font(.caption)
+                    }
+                    .foregroundStyle(themeManager.selectedTheme.colors.accent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.accent.opacity(0.12)))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(themeManager.selectedTheme.colors.accent.opacity(0.35), lineWidth: 1))
+                }
+                .sheet(isPresented: $showSamplePreview) {
+                    SampleResultPreviewSheet(category: .skin)
+                }
+
+                // Skin profile nudge — only shown if profile is empty
+                if profileStore.profile.skinType.isEmpty && profileStore.profile.skinConditions.isEmpty {
+                    SkinProfileNudgeBanner()
+                }
+
+                Spacer(minLength: 100)
             }
-            Spacer()
-            Spacer()
+            .padding(.horizontal, 20)
         }
-        .padding(.horizontal, 32)
     }
 
     private var noResultsView: some View {
@@ -335,6 +447,51 @@ private struct StatChipSkin: View {
         .padding(.vertical, 10)
         .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(0.08)))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(color.opacity(0.15), lineWidth: 1))
+    }
+}
+
+// MARK: - Skin Profile Nudge Banner
+// Shown in empty state AND at the top of results when skin profile is incomplete.
+
+struct SkinProfileNudgeBanner: View {
+    @Environment(ThemeManager.self) private var themeManager
+    @State private var showOnboarding = false
+
+    var body: some View {
+        Button { showOnboarding = true } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "person.crop.circle.badge.plus")
+                    .font(.title2)
+                    .foregroundStyle(Color(red: 0.62, green: 0.45, blue: 0.95))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Set your skin profile")
+                        .font(.subheadline).fontWeight(.semibold).foregroundStyle(.white)
+                    Text("Add your skin type and conditions for personalised irritant detection.")
+                        .font(.caption).foregroundStyle(.white.opacity(0.6))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption).foregroundStyle(.white.opacity(0.3))
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color(red: 0.62, green: 0.45, blue: 0.95).opacity(0.12))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color(red: 0.62, green: 0.45, blue: 0.95).opacity(0.35), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingView(startingStep: 3, isEditing: true)
+                .environment(themeManager)
+        }
     }
 }
 

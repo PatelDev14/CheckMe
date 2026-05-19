@@ -16,6 +16,14 @@ struct SkinResultsView: View {
     @State private var showingPhoto = false
     @FocusState private var nameFocused: Bool
 
+    // Ingredient section toggle — mirrors the food section pattern
+    private enum IngredientViewMode: String, CaseIterable {
+        case list      = "Ingredients"
+        case breakdown = "Breakdown"
+        var icon: String { self == .list ? "list.bullet" : "flask.fill" }
+    }
+    @State private var ingredientViewMode: IngredientViewMode = .list
+
     var body: some View {
         ZStack(alignment: .top) {
             themeManager.selectedTheme.colors.background.ignoresSafeArea()
@@ -28,8 +36,15 @@ struct SkinResultsView: View {
                     VStack(spacing: 16) {
                         capturedPhotoCard
                         ProfileAttributionBanner(tags: profileStore.profile.skinProfileTags)
+
+                        // Nudge to complete skin profile — only shown while profile is empty
+                        if profileStore.profile.skinType.isEmpty && profileStore.profile.skinConditions.isEmpty {
+                            SkinProfileNudgeBanner()
+                                .environment(themeManager)
+                        }
+
                         skinPredictionCard
-                        ingredientsSection
+                        ingredientsSection          // tabbed: Breakdown / Ingredients
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
@@ -224,14 +239,48 @@ struct SkinResultsView: View {
         }
     }
 
-    // MARK: - Ingredients Section
+    // MARK: - Ingredients Section (tabbed: Breakdown / List)
 
     private var ingredientsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            // Header with count + mode toggle
+            HStack(spacing: 10) {
                 Text("Ingredients")
-                    .font(.headline).fontWeight(.bold).foregroundStyle(.white)
+                    .font(.headline).fontWeight(.bold)
+                    .foregroundStyle(.white)
+
                 Spacer()
+
+                // Segment toggle — mirrors the food section
+                HStack(spacing: 0) {
+                    ForEach(IngredientViewMode.allCases, id: \.self) { mode in
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                ingredientViewMode = mode
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: mode.icon)
+                                    .font(.caption2)
+                                Text(mode.rawValue)
+                                    .font(.caption2).fontWeight(.medium)
+                            }
+                            .foregroundStyle(ingredientViewMode == mode ? .black : .white.opacity(0.5))
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .background(
+                                Capsule().fill(
+                                    ingredientViewMode == mode
+                                        ? themeManager.selectedTheme.colors.accent
+                                        : Color.clear
+                                )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(3)
+                .background(Capsule().fill(.white.opacity(0.08)))
+
                 Text("\(scan.ingredientCount)")
                     .font(.caption).fontWeight(.semibold)
                     .foregroundStyle(.white.opacity(0.5))
@@ -239,17 +288,89 @@ struct SkinResultsView: View {
                     .background(Capsule().fill(.white.opacity(0.1)))
             }
 
-            LazyVStack(spacing: 8) {
-                ForEach(scan.ingredients, id: \.self) { ingredient in
-                    NavigationLink(destination: SkinIngredientDetailView(ingredientName: ingredient, scan: scan)) {
-                        SkinIngredientRow(
-                            name: ingredient,
-                            irritants: scan.skinPrediction?.irritants ?? [],
-                            cautions: scan.skinPrediction?.cautions ?? []
+            // Content: Breakdown or flat list
+            if ingredientViewMode == .breakdown {
+                breakdownContent
+                    .transition(.opacity)
+            } else {
+                listContent
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    // MARK: - Breakdown tab
+
+    @ViewBuilder
+    private var breakdownContent: some View {
+        if let cats = scan.skinCategories {
+            let decoded = cats.decoded()
+            if !decoded.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(decoded, id: \.category) { group in
+                        IngredientCategoryRow(
+                            category: group.category,
+                            ingredients: group.ingredients,
+                            accentColor: categoryColor(group.category),
+                            scan: scan
                         )
+                        if group.category != decoded.last?.category {
+                            Divider().overlay(.white.opacity(0.06)).padding(.leading, 16)
+                        }
                     }
                 }
+                .background(RoundedRectangle(cornerRadius: 16).fill(themeManager.selectedTheme.colors.surface))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(.white.opacity(0.08), lineWidth: 1))
+            } else {
+                noBreakdownPlaceholder
             }
+        } else {
+            noBreakdownPlaceholder
+        }
+    }
+
+    private var noBreakdownPlaceholder: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "flask").font(.title2).foregroundStyle(.white.opacity(0.3))
+            Text("No breakdown available")
+                .font(.subheadline).foregroundStyle(.white.opacity(0.4))
+            Text("Re-analyse the scan to generate ingredient categories.")
+                .font(.caption).foregroundStyle(.white.opacity(0.3))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(32)
+        .background(RoundedRectangle(cornerRadius: 16).fill(themeManager.selectedTheme.colors.surface))
+    }
+
+    // MARK: - List tab
+
+    private var listContent: some View {
+        LazyVStack(spacing: 8) {
+            ForEach(scan.ingredients, id: \.self) { ingredient in
+                NavigationLink(destination: SkinIngredientDetailView(ingredientName: ingredient, scan: scan)) {
+                    SkinIngredientRow(
+                        name: ingredient,
+                        irritants: scan.skinPrediction?.irritants ?? [],
+                        cautions: scan.skinPrediction?.cautions ?? []
+                    )
+                }
+            }
+        }
+    }
+
+    // MARK: - Category color helper
+
+    private func categoryColor(_ category: String) -> Color {
+        switch category {
+        case "Actives":       return Color(red: 0.62, green: 0.45, blue: 0.95)
+        case "Humectants":    return .cyan
+        case "Emollients":    return Color(red: 0.35, green: 0.75, blue: 0.55)
+        case "Occlusives":    return .blue
+        case "Preservatives": return .orange
+        case "Fragrances":    return .pink
+        case "Surfactants":   return .yellow
+        default:              return .gray
         }
     }
 
@@ -426,9 +547,7 @@ struct SkinResultsView: View {
                 y += draw("\(i + 1).  \(ingredient)", x: margin, font: iFont, color: subInk) + 3
             }
 
-            // Footer — drawn directly at the bottom of the current page.
-            // Do NOT call draw() here: that goes through ensureSpace() and would
-            // start a fresh page whenever y is already near pageBottom.
+            // Footer
             let footerFont = UIFont.systemFont(ofSize: 9)
             let footerText = "Generated by CheckMe · \(scan.dateSaved.shortDisplay)"
             let footerAttrs: [NSAttributedString.Key: Any] = [.font: footerFont, .foregroundColor: faintInk]
@@ -614,6 +733,108 @@ struct SkinRating {
             label = "High Concern"; color = .red; icon = "xmark.octagon.fill"
         } else {
             label = "Unknown"; color = .gray; icon = "questionmark.circle.fill"
+        }
+    }
+}
+
+// MARK: - Ingredient Category Row
+
+private struct IngredientCategoryRow: View {
+    let category: String
+    let ingredients: [String]
+    let accentColor: Color
+    let scan: ScanModel
+
+    @State private var isExpanded = false
+
+    private let categoryIcons: [String: String] = [
+        "Actives":       "bolt.fill",
+        "Humectants":    "drop.fill",
+        "Emollients":    "hand.raised.fill",
+        "Occlusives":    "shield.fill",
+        "Preservatives": "lock.fill",
+        "Fragrances":    "nose.fill",
+        "Surfactants":   "bubbles.and.sparkles.fill",
+        "Other":         "square.grid.2x2.fill",
+    ]
+
+    /// One-line plain-English description shown when the row is expanded.
+    private let categoryDescriptions: [String: String] = [
+        "Actives":       "Bioactive ingredients that target specific skin concerns (e.g. retinol, niacinamide, vitamin C)",
+        "Humectants":    "Draw moisture into the skin — keep it hydrated (e.g. glycerin, hyaluronic acid)",
+        "Emollients":    "Soften and smooth the skin's surface by filling gaps in the lipid barrier",
+        "Occlusives":    "Form a protective seal on skin to lock in moisture (e.g. dimethicone, petrolatum)",
+        "Preservatives": "Prevent bacterial and mould growth so the product stays safe to use",
+        "Fragrances":    "Scent compounds — natural or synthetic — that can cause sensitivity in some people",
+        "Surfactants":   "Cleansing agents that lift oil and dirt from the skin (mainly in wash-off products)",
+        "Other":         "Supporting ingredients: water, thickeners, pH adjusters, emulsifiers, and more",
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header — tappable to expand/collapse
+            Button {
+                withAnimation(.spring(response: 0.25)) { isExpanded.toggle() }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: categoryIcons[category] ?? "circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(accentColor)
+                        .frame(width: 20)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(category)
+                            .font(.subheadline).fontWeight(.medium)
+                            .foregroundStyle(.white)
+
+                        // Description visible when expanded
+                        if isExpanded, let desc = categoryDescriptions[category] {
+                            Text(desc)
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.5))
+                                .fixedSize(horizontal: false, vertical: true)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Text("\(ingredients.count)")
+                        .font(.caption2).fontWeight(.semibold)
+                        .foregroundStyle(accentColor)
+                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .background(Capsule().fill(accentColor.opacity(0.15)))
+
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption2).foregroundStyle(.white.opacity(0.3))
+                }
+                .padding(.horizontal, 16).padding(.vertical, 12)
+            }
+            .buttonStyle(.plain)
+
+            // Expanded: tappable ingredient chips → SkinIngredientDetailView
+            if isExpanded {
+                FlowLayout(spacing: 6) {
+                    ForEach(ingredients, id: \.self) { ingredient in
+                        NavigationLink(destination: SkinIngredientDetailView(ingredientName: ingredient, scan: scan)) {
+                            HStack(spacing: 4) {
+                                Text(ingredient)
+                                    .font(.caption).fontWeight(.medium)
+                                    .foregroundStyle(accentColor)
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 8, weight: .semibold))
+                                    .foregroundStyle(accentColor.opacity(0.6))
+                            }
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .background(Capsule().fill(accentColor.opacity(0.1)))
+                            .overlay(Capsule().stroke(accentColor.opacity(0.25), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16).padding(.bottom, 12)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
     }
 }

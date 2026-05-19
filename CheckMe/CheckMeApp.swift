@@ -16,6 +16,7 @@ struct CheckMeApp: App {
             GeneralSummaryModel.self,
             SavedGutPrediction.self,
             SavedSkinPrediction.self,
+            SavedSkinCategories.self,
             SavedNutritionFacts.self,
             IngredientsModel.self,
             SkinIngredientModel.self,

@@ -9,6 +9,7 @@ enum SkinScanPhase: Equatable {
     case recognizingText
     case extractingProduct
     case analyzingSkin
+    case categorizingIngredients
     case complete
     case failed(String)
 
@@ -16,7 +17,7 @@ enum SkinScanPhase: Equatable {
         switch (lhs, rhs) {
         case (.idle, .idle), (.recognizingText, .recognizingText),
              (.extractingProduct, .extractingProduct), (.analyzingSkin, .analyzingSkin),
-             (.complete, .complete):
+             (.categorizingIngredients, .categorizingIngredients), (.complete, .complete):
             return true
         case (.failed(let a), .failed(let b)): return a == b
         default: return false
@@ -25,12 +26,13 @@ enum SkinScanPhase: Equatable {
 
     var statusText: String {
         switch self {
-        case .idle:               return ""
-        case .recognizingText:    return "Reading label…"
-        case .extractingProduct:  return "Identifying product…"
-        case .analyzingSkin:      return "Checking skin compatibility…"
-        case .complete:           return "Analysis complete"
-        case .failed(let msg):    return msg
+        case .idle:                    return ""
+        case .recognizingText:         return "Reading label…"
+        case .extractingProduct:       return "Identifying product…"
+        case .analyzingSkin:           return "Checking skin compatibility…"
+        case .categorizingIngredients: return "Categorising ingredients…"
+        case .complete:                return "Analysis complete"
+        case .failed(let msg):         return msg
         }
     }
 
@@ -103,13 +105,19 @@ final class SkinViewModel {
                 ingredients: cleanedIngredients
             )
 
+            // Categorise ingredients into functional groups for the breakdown card
+            phase = .categorizingIngredients
+            let categories = try? await categorizeIngredients(cleanedIngredients)
+
             let itemName = validatedName
             let scan = ScanModel(
                 itemName: itemName.isEmpty ? "Unknown Product" : itemName,
                 ingredients: cleanedIngredients,
                 category: .skin
             )
+            scan.capturedImagePath = saveCapturedImage(image)
             scan.skinPrediction = SavedSkinPrediction(from: skinPrediction)
+            if let categories { scan.skinCategories = SavedSkinCategories(from: categories) }
             modelContext.insert(scan)
             try modelContext.save()
 
@@ -126,6 +134,18 @@ final class SkinViewModel {
         currentScan = nil
         partialProductName = ""
         partialIngredients = []
+    }
+
+    // MARK: - Image Persistence
+
+    private func saveCapturedImage(_ image: UIImage) -> String? {
+        guard let data = image.jpegData(compressionQuality: 0.82) else { return nil }
+        let filename = "scan_\(UUID().uuidString).jpg"
+        let url = FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(filename)
+        try? data.write(to: url)
+        return filename
     }
 
     // MARK: - Helpers
@@ -285,6 +305,35 @@ final class SkinViewModel {
         \(context.isEmpty ? noProfileRules : hasProfileRules)
         """
         let result = try await session.respond(to: prompt, generating: SkinPrediction.self)
+        return result.content
+    }
+
+    // MARK: - Ingredient Categorisation
+
+    private func categorizeIngredients(_ ingredients: [String]) async throws -> SkinIngredientCategories {
+        let session = LanguageModelSession(
+            instructions: "You are a cosmetic chemist. Classify skincare ingredients into functional categories based on their established role in formulations."
+        )
+        let ingredientList = ingredients.joined(separator: "\n- ")
+        let prompt = """
+        Classify each ingredient below into exactly ONE functional category.
+        Every ingredient must appear in exactly one category — none may be omitted.
+        Do not invent ingredients not in the list.
+
+        Ingredients:
+        - \(ingredientList)
+
+        Categories and definitions:
+        • actives — bioactive ingredients that change skin chemistry (retinol, niacinamide, AHAs, BHAs, vitamin C, peptides, bakuchiol)
+        • humectants — draw moisture into skin (glycerin, hyaluronic acid, panthenol, aloe vera, urea, sodium PCA)
+        • emollients — soften skin, fill lipid gaps (squalane, jojoba oil, cetyl/cetearyl alcohol, shea butter, triglycerides, fatty acids)
+        • occlusives — seal moisture in, form barrier (petrolatum, dimethicone, beeswax, lanolin, mineral oil, zinc oxide, titanium dioxide)
+        • preservatives — prevent microbial growth (phenoxyethanol, parabens, benzyl alcohol, ethylhexylglycerin, sodium benzoate, DMDM hydantoin)
+        • fragrances — scent compounds natural or synthetic (parfum, fragrance, linalool, limonene, essential oils, citronellol)
+        • surfactants — cleanse via surface tension reduction (SLS, SLES, cocamidopropyl betaine, coco-glucoside, ammonium lauryl sulfate)
+        • other — everything else (water, thickeners like carbomer/xanthan gum, pH adjusters, chelators like EDTA, colorants, emulsifiers, solvents, sunscreen filters)
+        """
+        let result = try await session.respond(to: prompt, generating: SkinIngredientCategories.self)
         return result.content
     }
 

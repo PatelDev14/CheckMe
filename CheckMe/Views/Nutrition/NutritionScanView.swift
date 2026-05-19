@@ -188,25 +188,156 @@ struct NutritionScanView: View {
         scans.filter { ($0.nutritionFacts?.sodiumMg ?? 0) > 690 }.count
     }
 
-    // MARK: - Empty States
+    // MARK: - Empty State (rich onboarding version)
+
+    @State private var showSamplePreview = false
 
     private var emptyState: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            Image(systemName: "chart.pie.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(accentColor.opacity(0.7))
-            VStack(spacing: 8) {
-                Text("No Nutrition Scans Yet")
-                    .font(.title2).fontWeight(.bold).foregroundStyle(.white)
-                Text("Scan a Nutrition Facts panel to see animated macro breakdowns.")
-                    .font(.subheadline).foregroundStyle(.white.opacity(0.6))
-                    .multilineTextAlignment(.center)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 20) {
+                // Hero
+                VStack(spacing: 10) {
+                    Image(systemName: "chart.pie.fill")
+                        .font(.system(size: 60))
+                        .foregroundStyle(accentColor)
+                    Text("See What's In Your Food")
+                        .font(.title2).fontWeight(.bold).foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                    Text("Scan any Nutrition Facts panel for an instant macro breakdown and daily value analysis.")
+                        .font(.subheadline).foregroundStyle(.white.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 32)
+
+                // Mock Nutrition Facts label (like the muffin screenshot)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Example label to scan")
+                        .font(.caption).fontWeight(.medium)
+                        .foregroundStyle(.white.opacity(0.4))
+                        .padding(.bottom, 8)
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Nutrition Facts")
+                            .font(.system(size: 18, weight: .heavy))
+                            .foregroundStyle(.black)
+                        Text("Per muffin (100 g)")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.black.opacity(0.7))
+                        Rectangle().fill(Color.black).frame(height: 7).padding(.vertical, 4)
+                        HStack {
+                            Text("Calories").font(.system(size: 12, weight: .semibold)).foregroundStyle(.black)
+                            Spacer()
+                            Text("360").font(.system(size: 18, weight: .bold)).foregroundStyle(.black)
+                        }
+                        Rectangle().fill(Color.black.opacity(0.3)).frame(height: 0.5).padding(.vertical, 3)
+                        nutritionRow("Fat / Lipides", "16 g", "21 %")
+                        nutritionRow("Carbohydrate / Glucides", "49 g", "")
+                        nutritionSubRow("  Sugars / Sucres", "27 g", "27 %")
+                        nutritionRow("Protein / Protéines", "6 g", "")
+                        nutritionRow("Sodium", "340 mg", "15 %")
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.black.opacity(0.15), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+                }
+
+                // What to scan
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("What to scan")
+                        .font(.headline).fontWeight(.semibold).foregroundStyle(.white)
+
+                    ForEach([
+                        ("bag.fill",               "Packaged Foods",        "Any product with a Nutrition Facts panel"),
+                        ("birthday.cake.fill",     "Baked Goods & Snacks",  "Muffins, cookies, crackers — calories & macros"),
+                        ("cup.and.saucer.fill",    "Breakfast Cereals",     "See sugar, fibre, and vitamin content at a glance"),
+                        ("takeoutbag.and.cup.and.straw.fill", "Ready Meals","Frozen dinners, soups, meal kits"),
+                    ], id: \.1) { icon, label, detail in
+                        HStack(spacing: 14) {
+                            Image(systemName: icon)
+                                .font(.title3)
+                                .foregroundStyle(accentColor)
+                                .frame(width: 32)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(label).font(.subheadline).fontWeight(.medium).foregroundStyle(.white)
+                                Text(detail).font(.caption).foregroundStyle(.white.opacity(0.5))
+                            }
+                        }
+                    }
+                }
+                .padding(16)
+                .background(RoundedRectangle(cornerRadius: 16).fill(Color.white.opacity(0.07)))
+
+                // Understanding results
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Understanding your results")
+                        .font(.headline).fontWeight(.semibold).foregroundStyle(.white)
+
+                    ForEach([
+                        ("flame.fill",    Color.orange, "Calories & Macros",   "Total calories, fat, carbs, protein per serving"),
+                        ("chart.bar.fill",accentColor,  "Daily Value %",        "See how each nutrient stacks against your daily needs"),
+                        ("drop.fill",     Color.yellow, "Key Nutrients",        "Sodium, sugar, fibre, vitamins and minerals"),
+                    ], id: \.2) { icon, color, label, detail in
+                        HStack(spacing: 14) {
+                            Image(systemName: icon).foregroundStyle(color).frame(width: 24)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(label).font(.subheadline).fontWeight(.semibold).foregroundStyle(.white)
+                                Text(detail).font(.caption).foregroundStyle(.white.opacity(0.5))
+                            }
+                        }
+                    }
+                }
+                .padding(16)
+                .background(RoundedRectangle(cornerRadius: 16).fill(Color.white.opacity(0.07)))
+
+                // See example results button
+                Button {
+                    showSamplePreview = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "eye.fill").font(.subheadline)
+                        Text("See example results")
+                            .font(.subheadline).fontWeight(.semibold)
+                        Image(systemName: "arrow.right").font(.caption)
+                    }
+                    .foregroundStyle(accentColor)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(accentColor.opacity(0.12)))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(accentColor.opacity(0.35), lineWidth: 1))
+                }
+                .sheet(isPresented: $showSamplePreview) {
+                    SampleResultPreviewSheet(category: .nutrition)
+                }
+
+                Spacer(minLength: 100)
             }
-            Spacer()
-            Spacer()
+            .padding(.horizontal, 20)
         }
-        .padding(.horizontal, 32)
+    }
+
+    private func nutritionRow(_ name: String, _ amount: String, _ dv: String) -> some View {
+        HStack {
+            Text(name).font(.system(size: 10)).foregroundStyle(.black)
+            Spacer()
+            Text(amount).font(.system(size: 10)).foregroundStyle(.black)
+            if !dv.isEmpty {
+                Text(dv).font(.system(size: 10, weight: .semibold)).foregroundStyle(.black).frame(width: 36, alignment: .trailing)
+            }
+        }
+        .padding(.vertical, 1)
+    }
+
+    private func nutritionSubRow(_ name: String, _ amount: String, _ dv: String) -> some View {
+        HStack {
+            Text(name).font(.system(size: 9)).foregroundStyle(.black.opacity(0.7))
+            Spacer()
+            Text(amount).font(.system(size: 9)).foregroundStyle(.black.opacity(0.7))
+            Text(dv).font(.system(size: 9)).foregroundStyle(.black.opacity(0.7)).frame(width: 36, alignment: .trailing)
+        }
+        .padding(.vertical, 1)
     }
 
     private var noResultsView: some View {
