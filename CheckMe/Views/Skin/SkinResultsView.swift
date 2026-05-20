@@ -26,7 +26,7 @@ struct SkinResultsView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            themeManager.selectedTheme.colors.background.ignoresSafeArea()
+            themeManager.selectedTheme.backgroundGradient.ignoresSafeArea()
 
             ScrollView {
                 VStack(spacing: 0) {

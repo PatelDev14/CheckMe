@@ -363,25 +363,17 @@ struct FeedbackView: View {
 
     @State private var category: FeedbackCategory = .general
     @State private var message = ""
-    @State private var contactEmail = ""
     @State private var showCopiedToast = false
     @State private var showMailUnavailableAlert = false
-    @FocusState private var activeField: FeedbackField?
+    @FocusState private var messageFocused: Bool
 
-    enum FeedbackField { case message, email }
-
-    private var deviceInfo: String {
-        let device = UIDevice.current
-        return "\(device.model) · iOS \(device.systemVersion) · CheckMe 1.0.0"
-    }
-
-    private var isReadyToSend: Bool {
-        message.trimmingCharacters(in: .whitespacesAndNewlines).count >= 10
+    private var hasMessage: Bool {
+        !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
         Form {
-            // Category — native Picker, zero interaction issues
+            // Category
             Section("What kind of feedback?") {
                 Picker("Category", selection: $category) {
                     ForEach(FeedbackCategory.allCases) { cat in
@@ -396,56 +388,46 @@ struct FeedbackView: View {
             Section {
                 TextField("Describe the issue, idea, or experience…", text: $message, axis: .vertical)
                     .lineLimit(5, reservesSpace: true)
-                    .focused($activeField, equals: .message)
+                    .focused($messageFocused)
                     .submitLabel(.done)
-                    .onSubmit { activeField = nil }
+                    .onSubmit { messageFocused = false }
             } header: {
                 Text("Your message")
             } footer: {
-                Text("Please be as specific as possible — steps to reproduce a bug, or the feature you'd like to see.")
-            }
-
-            // Optional contact email
-            Section {
-                TextField("your@email.com (optional)", text: $contactEmail)
-                    .keyboardType(.emailAddress)
-                    .textInputAutocapitalization(.never)
-                    .focused($activeField, equals: .email)
-                    .submitLabel(.done)
-                    .onSubmit { activeField = nil }
-            } header: {
-                Text("Contact email")
-            } footer: {
-                Text("Only if you'd like a reply. We'll never share your address.")
+                Text("Be as specific as possible — steps to reproduce a bug, or the feature you'd like to see.")
             }
 
             // Actions
             Section {
                 Button {
-                    activeField = nil
+                    messageFocused = false
                     sendFeedback()
                 } label: {
                     Label("Send via Mail", systemImage: "paperplane.fill")
                         .frame(maxWidth: .infinity)
                         .fontWeight(.semibold)
                 }
-                .disabled(!isReadyToSend)
+                .disabled(!hasMessage)
                 .tint(.accentColor)
 
                 Button {
-                    activeField = nil
+                    messageFocused = false
                     copyToClipboard()
                 } label: {
                     Label(
-                        showCopiedToast ? "Copied to Clipboard!" : "Copy to Clipboard",
+                        showCopiedToast ? "Copied!" : "Copy to Clipboard",
                         systemImage: showCopiedToast ? "checkmark.circle.fill" : "doc.on.doc"
                     )
                     .frame(maxWidth: .infinity)
                 }
-                .disabled(!isReadyToSend)
+                .disabled(!hasMessage)
                 .tint(showCopiedToast ? .green : .secondary)
             } footer: {
-                Text("Mail opens with everything pre-filled — just tap Send. No Apple Mail? Use Copy to Clipboard and paste into Gmail or any other app.")
+                if !hasMessage {
+                    Text("Write a message above to enable sending.")
+                } else {
+                    Text("Mail opens pre-filled — just tap Send. No Apple Mail? Use Copy to Clipboard instead.")
+                }
             }
         }
         .scrollDismissesKeyboard(.interactively)
@@ -453,7 +435,7 @@ struct FeedbackView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .keyboard) {
-                Button("Done") { activeField = nil }
+                Button("Done") { messageFocused = false }
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
@@ -467,37 +449,28 @@ struct FeedbackView: View {
     }
 
     private func sendFeedback() {
-        let subject = "[\(category.rawValue)] CheckMe Feedback"
-        let body = buildBody()
-        let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? subject
-        let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? body
-        let urlString = "mailto:\(supportEmail)?subject=\(encodedSubject)&body=\(encodedBody)"
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = supportEmail
+        components.queryItems = [
+            URLQueryItem(name: "subject", value: category.rawValue),
+            URLQueryItem(name: "body", value: message),
+        ]
 
-        if let url = URL(string: urlString), UIApplication.shared.canOpenURL(url) {
-            UIApplication.shared.open(url)
-        } else {
-            showMailUnavailableAlert = true
+        guard let url = components.url else { return }
+        UIApplication.shared.open(url, options: [:]) { success in
+            if !success {
+                showMailUnavailableAlert = true
+            }
         }
     }
 
     private func copyToClipboard() {
-        let subject = "[\(category.rawValue)] CheckMe Feedback"
-        let fullText = "To: \(supportEmail)\nSubject: \(subject)\n\n\(buildBody())"
-        UIPasteboard.general.string = fullText
+        UIPasteboard.general.string = message
         withAnimation { showCopiedToast = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             withAnimation { showCopiedToast = false }
         }
-    }
-
-    private func buildBody() -> String {
-        var parts = [String]()
-        parts.append("Category: \(category.rawValue)")
-        parts.append("Device: \(deviceInfo)")
-        if !contactEmail.isEmpty { parts.append("Reply to: \(contactEmail)") }
-        parts.append("")
-        parts.append(message)
-        return parts.joined(separator: "\n")
     }
 }
 
