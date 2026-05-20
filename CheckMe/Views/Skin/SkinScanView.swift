@@ -22,6 +22,9 @@ struct SkinScanView: View {
     @State private var selectedIDs: Set<PersistentIdentifier> = []
     @State private var showBulkDeleteConfirm = false
     @State private var showSamplePreview = false
+    @State private var showComparison = false
+    @State private var compareScanA: ScanModel?
+    @State private var compareScanB: ScanModel?
 
     private var filteredScans: [ScanModel] {
         guard !searchText.isEmpty else { return scans }
@@ -34,7 +37,7 @@ struct SkinScanView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                themeManager.selectedTheme.colors.background.ignoresSafeArea()
+                themeManager.selectedTheme.backgroundGradient.ignoresSafeArea()
 
                 Group {
                     if scans.isEmpty { emptyState } else { scanList }
@@ -59,6 +62,11 @@ struct SkinScanView: View {
             }
             .navigationDestination(isPresented: $navigateToLastScan) {
                 if let scan = lastScannedScan { SkinResultsView(scan: scan) }
+            }
+            .navigationDestination(isPresented: $showComparison) {
+                if let a = compareScanA, let b = compareScanB {
+                    ScanComparisonView(scanA: a, scanB: b)
+                }
             }
             .fullScreenCover(isPresented: $showCamera) {
                 SkinCameraView { completedScan in
@@ -155,6 +163,23 @@ struct SkinScanView: View {
                             .foregroundStyle(.white.opacity(0.7))
                     }
                     Spacer()
+                    if selectedIDs.count == 2 {
+                        Button {
+                            let selected = filteredScans.filter { selectedIDs.contains($0.persistentModelID) }
+                            if selected.count == 2 {
+                                compareScanA = selected[0]
+                                compareScanB = selected[1]
+                                showComparison = true
+                            }
+                        } label: {
+                            Label("Compare", systemImage: "rectangle.split.2x1")
+                                .font(.subheadline).fontWeight(.semibold)
+                                .foregroundStyle(themeManager.selectedTheme.colors.accent)
+                        }
+                        Divider()
+                            .frame(height: 18)
+                            .overlay(Color.white.opacity(0.3))
+                    }
                     Button {
                         showBulkDeleteConfirm = true
                     } label: {
@@ -236,6 +261,26 @@ struct SkinScanView: View {
                     .shadow(color: .black.opacity(0.3), radius: 6, y: 2)
                 }
 
+                // See example results button
+                Button {
+                    showSamplePreview = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "eye.fill").font(.subheadline)
+                        Text("See example results")
+                            .font(.subheadline).fontWeight(.semibold)
+                        Image(systemName: "arrow.right").font(.caption)
+                    }
+                    .foregroundStyle(themeManager.selectedTheme.colors.accent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.accent.opacity(0.12)))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(themeManager.selectedTheme.colors.accent.opacity(0.35), lineWidth: 1))
+                }
+                .sheet(isPresented: $showSamplePreview) {
+                    ExampleResultSheet(category: .skin)
+                }
+
                 // What you can scan
                 VStack(alignment: .leading, spacing: 12) {
                     Text("What to scan")
@@ -287,26 +332,6 @@ struct SkinScanView: View {
                 }
                 .padding(16)
                 .background(RoundedRectangle(cornerRadius: 16).fill(themeManager.selectedTheme.colors.surface))
-
-                // See example results button
-                Button {
-                    showSamplePreview = true
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "eye.fill").font(.subheadline)
-                        Text("See example results")
-                            .font(.subheadline).fontWeight(.semibold)
-                        Image(systemName: "arrow.right").font(.caption)
-                    }
-                    .foregroundStyle(themeManager.selectedTheme.colors.accent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.accent.opacity(0.12)))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(themeManager.selectedTheme.colors.accent.opacity(0.35), lineWidth: 1))
-                }
-                .sheet(isPresented: $showSamplePreview) {
-                    SampleResultPreviewSheet(category: .skin)
-                }
 
                 // Skin profile nudge — only shown if profile is empty
                 if profileStore.profile.skinType.isEmpty && profileStore.profile.skinConditions.isEmpty {

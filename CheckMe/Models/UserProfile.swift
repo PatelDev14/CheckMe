@@ -123,6 +123,13 @@ final class UserProfileStore {
         }
     }
 
+    /// Creates a store pre-seeded with a given profile without persisting to UserDefaults.
+    /// `didSet` is not called during `init`, so nothing is written to storage.
+    /// Use this only for previews and example sheets.
+    init(previewProfile: UserProfile) {
+        profile = previewProfile
+    }
+
     private func save() {
         if let data = try? JSONEncoder().encode(profile) {
             UserDefaults.standard.set(data, forKey: key)

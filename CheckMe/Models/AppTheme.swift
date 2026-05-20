@@ -84,11 +84,16 @@ enum AppTheme: String, CaseIterable, Codable {
         )
     }
 
-    // Main background gradient — subtle top-to-bottom fade from a tinted dark to pure deep dark.
-    // Replaces the flat solid background.color across all screen roots.
+    // Main background gradient — top-to-bottom fade from the theme's secondary colour
+    // (more saturated, richer) through primary down to the deep background.
+    // Three stops create visible depth without going neon.
     var backgroundGradient: LinearGradient {
         LinearGradient(
-            colors: [colors.primary.opacity(0.85), colors.background],
+            colors: [
+                colors.secondary.opacity(0.55),
+                colors.primary.opacity(0.80),
+                colors.background,
+            ],
             startPoint: .top,
             endPoint: .bottom
         )
