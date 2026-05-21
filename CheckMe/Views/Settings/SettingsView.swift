@@ -404,7 +404,7 @@ struct FeedbackView: View {
                     sendFeedback()
                 } label: {
                     Label("Send via Mail", systemImage: "paperplane.fill")
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, alignment: .center)
                         .fontWeight(.semibold)
                 }
                 .disabled(!hasMessage)
@@ -418,7 +418,7 @@ struct FeedbackView: View {
                         showCopiedToast ? "Copied!" : "Copy to Clipboard",
                         systemImage: showCopiedToast ? "checkmark.circle.fill" : "doc.on.doc"
                     )
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, alignment: .center)
                 }
                 .disabled(!hasMessage)
                 .tint(showCopiedToast ? .green : .secondary)
@@ -466,7 +466,8 @@ struct FeedbackView: View {
     }
 
     private func copyToClipboard() {
-        UIPasteboard.general.string = message
+        let fullText = "To: \(supportEmail)\nSubject: \(category.rawValue)\n\n\(message)"
+        UIPasteboard.general.string = fullText
         withAnimation { showCopiedToast = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             withAnimation { showCopiedToast = false }
