@@ -256,7 +256,8 @@
 				DEVELOPMENT_TEAM = TZTPF27ABB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "We use the camera to scan ingredient labels.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "CheckMe uses the camera to scan ingredient labels on food packaging and personal care products for analysis.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "CheckMe can read ingredient labels from photos in your library so you can analyse products without using the camera.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -293,7 +294,8 @@
 				DEVELOPMENT_TEAM = TZTPF27ABB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "We use the camera to scan ingredient labels.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "CheckMe uses the camera to scan ingredient labels on food packaging and personal care products for analysis.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "CheckMe can read ingredient labels from photos in your library so you can analyse products without using the camera.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

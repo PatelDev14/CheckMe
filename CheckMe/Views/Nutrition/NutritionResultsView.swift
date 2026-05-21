@@ -33,18 +33,6 @@ struct NutritionResultsView: View {
                             capturedPhotoCard
                             servingPickerCard(nutrition)
                             NutritionFactsCard(facts: nutrition, servingsMultiplier: servingsMultiplier, startsExpanded: true)
-
-                            // ContainerFillView temporarily hidden — re-enable when design is finalised
-                            // if !nutrition.fillLayerNames.isEmpty {
-                            //     ContainerFillView(
-                            //         containerType: nutrition.containerType,
-                            //         layerNames: nutrition.fillLayerNames,
-                            //         layerPercents: nutrition.fillLayerPercents,
-                            //         gramValues: compositionGrams(from: nutrition),
-                            //         allergens: nutrition.allergens
-                            //     )
-                            // }
-
                             MicronutrientsView(nutrition: nutrition, servingsMultiplier: servingsMultiplier)
 
                             if !nutrition.aiInsight.isEmpty {

@@ -137,11 +137,12 @@ private struct WelcomeStep: View {
 
             VStack(spacing: 16) {
                 Text("Know What You Put In (and On) Your Body")
-                    .font(.title).fontWeight(.bold)
+                    .font(.title2).fontWeight(.bold)
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
+                    .lineLimit(nil)
 
-                Text("Scan any ingredient label and get instant, personalized analysis — for your gut and your skin.")
+                Text("Scan any ingredient label and get instant, personalised analysis — for your gut and your skin.")
                     .font(.body)
                     .foregroundStyle(.white.opacity(0.85))
                     .multilineTextAlignment(.center)
@@ -171,8 +172,9 @@ private struct FoodRestrictionsStep: View {
             VStack(spacing: 8) {
                 Text("Dietary Preferences")
                     .font(.title2).fontWeight(.bold).foregroundStyle(.white)
-                Text("Select any that apply to you.")
+                Text("Tell us how you eat so we can tailor every food scan.")
                     .font(.subheadline).foregroundStyle(.white.opacity(0.8))
+                    .multilineTextAlignment(.center)
             }
 
             SelectionGrid(
@@ -202,8 +204,9 @@ private struct FoodAllergiesAndGutStep: View {
             VStack(spacing: 8) {
                 Text("Allergies & Gut Health")
                     .font(.title2).fontWeight(.bold).foregroundStyle(.white)
-                Text("We'll always flag these in scans.")
+                Text("Select any allergens or digestive conditions — we'll always flag them in your scans.")
                     .font(.subheadline).foregroundStyle(.white.opacity(0.8))
+                    .multilineTextAlignment(.center)
             }
 
             VStack(alignment: .leading, spacing: 16) {
@@ -240,8 +243,9 @@ private struct SkinProfileStep: View {
             VStack(spacing: 8) {
                 Text("Your Skin Profile")
                     .font(.title2).fontWeight(.bold).foregroundStyle(.white)
-                Text("Helps us flag irritants in skincare scans.")
+                Text("We'll highlight ingredients that may not suit your skin type or conditions.")
                     .font(.subheadline).foregroundStyle(.white.opacity(0.8))
+                    .multilineTextAlignment(.center)
             }
 
             VStack(alignment: .leading, spacing: 16) {
@@ -292,7 +296,7 @@ private struct HealthGoalsStep: View {
             VStack(spacing: 8) {
                 Text("Your Health Goals")
                     .font(.title2).fontWeight(.bold).foregroundStyle(.white)
-                Text("Helps us tailor every analysis to what matters to you.")
+                Text("We'll use these to add extra context and relevance to every analysis.")
                     .font(.subheadline).foregroundStyle(.white.opacity(0.8))
                     .multilineTextAlignment(.center)
             }
@@ -325,7 +329,7 @@ private struct ExtraNotesStep: View {
             VStack(spacing: 8) {
                 Text("Anything Else?")
                     .font(.title2).fontWeight(.bold).foregroundStyle(.white)
-                Text("Specific ingredients or concerns to always flag.")
+                Text("Add any ingredients or concerns you want us to always watch for in your scans.")
                     .font(.subheadline).foregroundStyle(.white.opacity(0.8))
                     .multilineTextAlignment(.center)
             }
@@ -409,21 +413,24 @@ struct SelectionGrid: View {
     let onToggle: (String) -> Void
 
     var body: some View {
-        FlowLayout(spacing: 8) {
-            ForEach(options, id: \.self) { option in
-                let isOn = selected.contains(option)
-                Button { onToggle(option) } label: {
-                    Text(option)
-                        .font(.subheadline).fontWeight(.medium)
-                        .foregroundStyle(isOn ? .black : .white)
-                        .padding(.horizontal, 14).padding(.vertical, 8)
-                        .background(isOn ? Color.white : Color.white.opacity(0.2))
-                        .clipShape(Capsule())
-                        .animation(.spring(response: 0.25), value: isOn)
+        HStack {
+            Spacer()
+            FlowLayout(spacing: 8) {
+                ForEach(options, id: \.self) { option in
+                    let isOn = selected.contains(option)
+                    Button { onToggle(option) } label: {
+                        Text(option)
+                            .font(.subheadline).fontWeight(.medium)
+                            .foregroundStyle(isOn ? .black : .white)
+                            .padding(.horizontal, 14).padding(.vertical, 8)
+                            .background(isOn ? Color.white : Color.white.opacity(0.2))
+                            .clipShape(Capsule())
+                            .animation(.spring(response: 0.25), value: isOn)
+                    }
                 }
             }
+            Spacer()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
