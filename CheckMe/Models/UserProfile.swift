@@ -141,8 +141,8 @@ final class UserProfileStore {
 
 enum ProfileOptions {
     static let foodRestrictions = [
-        "Gluten-Free", "Dairy-Free", "Vegan", "Vegetarian",
-        "Keto", "Low-FODMAP", "Diabetic-Friendly", "Halal", "Kosher"
+        "Gluten-Free", "Dairy-Free", "Vegetarian", "Vegan",  "Organic", "Hindu", "Keto", "Plant-Based",
+         "Non-GMO", "Halal", "Diabetic-Friendly", "Kosher"
     ]
     static let foodAllergies = [
         "Peanuts", "Tree Nuts", "Milk", "Eggs",
@@ -161,7 +161,7 @@ enum ProfileOptions {
     ]
     static let healthGoals = [
         "Lose Weight", "Build Muscle", "Improve Gut Health",
-        "Manage Allergies", "Reduce Inflammation", "Improve Skin Health",
-        "Increase Energy", "Eat Cleaner"
+        "Manage Allergies", "Reduce Inflammation", "Eat Cleaner", "Improve Skin Health",
+        "Increase Energy"
     ]
 }
