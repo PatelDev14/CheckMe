@@ -80,13 +80,13 @@ struct CameraView: View {
 
                     Spacer()
 
-                    // Bottom bar — shutter + guidance text
-                    LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .top, endPoint: .bottom)
-                        .frame(height: 200)
-                        .overlay(alignment: .bottom) {
-                            bottomControls
-                        }
-                        .ignoresSafeArea(edges: .bottom)
+                    // Bottom controls with black background (no separate overlay)
+                    ZStack(alignment: .bottom) {
+                        LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                            .ignoresSafeArea(edges: .bottom)
+                        bottomControls
+                    }
+                    .frame(maxWidth: .infinity)
                 }
             }
 
