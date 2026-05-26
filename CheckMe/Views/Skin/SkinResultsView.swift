@@ -225,6 +225,7 @@ struct SkinResultsView: View {
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .padding(16)
             }
+            .clipShape(RoundedRectangle(cornerRadius: 16))
             .background(RoundedRectangle(cornerRadius: 16).fill(themeManager.selectedTheme.colors.surface))
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(rating.color.opacity(0.25), lineWidth: 1))
 

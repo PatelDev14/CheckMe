@@ -189,9 +189,11 @@ struct ScanComparisonView: View {
             Text(label)
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.4))
-                .lineLimit(1)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
+        .padding(.horizontal, 6)
     }
 
     // MARK: - Category-Specific Section
@@ -234,6 +236,8 @@ struct ScanComparisonView: View {
         case .nutrition:
             if let a = scanA.nutritionFacts, let b = scanB.nutritionFacts {
                 comparisonCard(title: "Nutrition") {
+                    servingSizeRow(a.servingSize, b.servingSize)
+                    Divider().overlay(Color.white.opacity(0.15))
                     macroRow("Calories", a: a.calories,   b: b.calories,   unit: "kcal", lowerIsBetter: false)
                     macroRow("Protein",  a: a.proteinG,   b: b.proteinG,   unit: "g",    lowerIsBetter: false)
                     macroRow("Fat",      a: a.totalFatG,  b: b.totalFatG,  unit: "g",    lowerIsBetter: true)
@@ -294,6 +298,32 @@ struct ScanComparisonView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    // MARK: - Serving Size Row (nutrition)
+
+    private func servingSizeRow(_ sizeA: String, _ sizeB: String) -> some View {
+        HStack(alignment: .top) {
+            Text(sizeA)
+                .font(.subheadline).fontWeight(.semibold)
+                .foregroundStyle(.white.opacity(0.85))
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("Per Serving")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.45))
+                .frame(width: 72, alignment: .center)
+                .multilineTextAlignment(.center)
+
+            Text(sizeB)
+                .font(.subheadline).fontWeight(.semibold)
+                .foregroundStyle(.white.opacity(0.85))
+                .multilineTextAlignment(.trailing)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
 

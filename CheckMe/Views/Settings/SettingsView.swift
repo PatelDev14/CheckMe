@@ -164,6 +164,14 @@ struct SettingsView: View {
 
                 Section("App") {
                     LabeledContent("Version", value: "1.0.0")
+                    Link(destination: URL(string: "https://pateldev14.github.io/CheckMe/privacy")!) {
+                        Label("Privacy Policy", systemImage: "hand.raised.fill")
+                            .foregroundStyle(.primary)
+                    }
+                    Link(destination: URL(string: "https://pateldev14.github.io/CheckMe/terms")!) {
+                        Label("Terms of Use", systemImage: "doc.text.fill")
+                            .foregroundStyle(.primary)
+                    }
                 }
             }
             .navigationTitle("Settings")
@@ -399,29 +407,44 @@ struct FeedbackView: View {
 
             // Actions
             Section {
-                Button {
-                    messageFocused = false
-                    sendFeedback()
-                } label: {
-                    Label("Send via Mail", systemImage: "paperplane.fill")
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .fontWeight(.semibold)
-                }
-                .disabled(!hasMessage)
-                .tint(.accentColor)
+                VStack(spacing: 10) {
+                    Button(action: {
+                        messageFocused = false
+                        sendFeedback()
+                    }) {
+                        Label("Send via Mail", systemImage: "paperplane.fill")
+                            .font(.subheadline).fontWeight(.semibold)
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.accentColor)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!hasMessage)
+                    .opacity(!hasMessage ? 0.5 : 1)
 
-                Button {
-                    messageFocused = false
-                    copyToClipboard()
-                } label: {
-                    Label(
-                        showCopiedToast ? "Copied!" : "Copy to Clipboard",
-                        systemImage: showCopiedToast ? "checkmark.circle.fill" : "doc.on.doc"
-                    )
-                    .frame(maxWidth: .infinity, alignment: .center)
+                    Button(action: {
+                        messageFocused = false
+                        copyToClipboard()
+                    }) {
+                        Label(
+                            showCopiedToast ? "Copied!" : "Copy to Clipboard",
+                            systemImage: showCopiedToast ? "checkmark.circle.fill" : "doc.on.doc"
+                        )
+                        .font(.subheadline).fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(showCopiedToast ? Color.green : Color.secondary)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .animation(.spring(response: 0.3), value: showCopiedToast)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!hasMessage)
+                    .opacity(!hasMessage ? 0.5 : 1)
                 }
-                .disabled(!hasMessage)
-                .tint(showCopiedToast ? .green : .secondary)
+                .padding(.vertical, 6)
             } footer: {
                 if !hasMessage {
                     Text("Write a message above to enable sending.")
