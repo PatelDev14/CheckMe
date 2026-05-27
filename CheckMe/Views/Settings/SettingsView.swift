@@ -164,11 +164,19 @@ struct SettingsView: View {
 
                 Section("App") {
                     LabeledContent("Version", value: "1.0.0")
-                    Link(destination: URL(string: "https://pateldev14.github.io/CheckMe/privacy")!) {
+                    Button {
+                        if let url = URL(string: "https://pateldev14.github.io/CheckMe/privacy") {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
                         Label("Privacy Policy", systemImage: "hand.raised.fill")
                             .foregroundStyle(.primary)
                     }
-                    Link(destination: URL(string: "https://pateldev14.github.io/CheckMe/terms")!) {
+                    Button {
+                        if let url = URL(string: "https://pateldev14.github.io/CheckMe/terms") {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
                         Label("Terms of Use", systemImage: "doc.text.fill")
                             .foregroundStyle(.primary)
                     }

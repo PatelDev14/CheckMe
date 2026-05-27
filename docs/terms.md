@@ -106,11 +106,11 @@ Visit their sites directly for their terms and policies.
 
 ## Intellectual Property
 
-All content, design, functionality, and trade secrets in CheckMe are the exclusive property of CheckMe and its creators. You may not copy, modify, or distribute any content without permission.
+All content, design, and functionality in CheckMe are the exclusive property of CheckMe and its creators. You may not copy, modify, or distribute any content without permission.
 
 ## Termination
 
-We reserve the right to terminate or suspend your access to the App if you violate these terms or for any reason at our sole discretion.
+We reserve the right to release updates that modify or remove features and functionality of the App. If you violate these Terms, we may take steps to limit your use through future app updates.
 
 ## Governing Law
 
