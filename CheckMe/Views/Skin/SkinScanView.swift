@@ -333,10 +333,8 @@ struct SkinScanView: View {
                 .padding(16)
                 .background(RoundedRectangle(cornerRadius: 16).fill(themeManager.selectedTheme.colors.surface))
 
-                // Skin profile nudge — only shown if profile is empty
-                if profileStore.profile.skinType.isEmpty && profileStore.profile.skinConditions.isEmpty {
-                    SkinProfileNudgeBanner()
-                }
+                // Skin profile nudge — visibility condition handled internally
+                SkinProfileNudgeBanner()
 
                 Spacer(minLength: 100)
             }

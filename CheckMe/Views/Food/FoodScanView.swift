@@ -268,10 +268,9 @@ struct FoodScanView: View {
                 .padding(.top, 32)
 
                 // Profile nudge — shown if dietary/allergy profile is incomplete
-                if profileStore.profile.foodRestrictions.isEmpty && profileStore.profile.foodAllergies.isEmpty && profileStore.profile.digestiveConditions.isEmpty {
-                    FoodProfileNudgeBanner()
-                        .padding(.horizontal, 4)
-                }
+                // Visibility condition handled internally so sheet stays open during setup
+                FoodProfileNudgeBanner()
+                    .padding(.horizontal, 4)
 
                 // Mock label preview (like the corn cereal screenshot)
                 VStack(alignment: .leading, spacing: 0) {
@@ -367,13 +366,9 @@ struct FoodScanView: View {
                 .background(RoundedRectangle(cornerRadius: 16).fill(themeManager.selectedTheme.colors.surface))
 
                 // Profile nudge — shown when food profile is empty
-                let hasNoFoodProfile = profileStore.profile.foodRestrictions.isEmpty
-                    && profileStore.profile.foodAllergies.isEmpty
-                    && profileStore.profile.digestiveConditions.isEmpty
-                if hasNoFoodProfile {
-                    FoodProfileNudgeBanner()
-                        .padding(.horizontal, 4)
-                }
+                // Visibility condition handled internally so sheet stays open during setup
+                FoodProfileNudgeBanner()
+                    .padding(.horizontal, 4)
 
                 Spacer(minLength: 100)
             }
