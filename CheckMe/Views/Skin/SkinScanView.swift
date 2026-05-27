@@ -480,42 +480,49 @@ private struct StatChipSkin: View {
 
 struct SkinProfileNudgeBanner: View {
     @Environment(ThemeManager.self) private var themeManager
+    @Environment(UserProfileStore.self) private var profileStore
     @State private var showOnboarding = false
 
     var body: some View {
-        Button { showOnboarding = true } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "person.crop.circle.badge.plus")
-                    .font(.title2)
-                    .foregroundStyle(Color(red: 0.62, green: 0.45, blue: 0.95))
+        // Only show banner when profile is empty, but keep state alive while sheet is open
+        // so selections don't cause the sheet to close
+        Group {
+            if profileStore.profile.skinType.isEmpty && profileStore.profile.skinConditions.isEmpty || showOnboarding {
+                Button { showOnboarding = true } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "person.crop.circle.badge.plus")
+                            .font(.title2)
+                            .foregroundStyle(Color(red: 0.62, green: 0.45, blue: 0.95))
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Set your skin profile")
-                        .font(.subheadline).fontWeight(.semibold).foregroundStyle(.white)
-                    Text("Add your skin type and conditions for personalised irritant detection.")
-                        .font(.caption).foregroundStyle(.white.opacity(0.6))
-                        .fixedSize(horizontal: false, vertical: true)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Set your skin profile")
+                                .font(.subheadline).fontWeight(.semibold).foregroundStyle(.white)
+                            Text("Add your skin type and conditions for personalised irritant detection.")
+                                .font(.caption).foregroundStyle(.white.opacity(0.6))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption).foregroundStyle(.white.opacity(0.3))
+                    }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color(red: 0.62, green: 0.45, blue: 0.95).opacity(0.12))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color(red: 0.62, green: 0.45, blue: 0.95).opacity(0.35), lineWidth: 1)
+                    )
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption).foregroundStyle(.white.opacity(0.3))
+                .buttonStyle(.plain)
+                .sheet(isPresented: $showOnboarding) {
+                    OnboardingView(startingStep: 3, isEditing: true)
+                        .environment(themeManager)
+                }
             }
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(red: 0.62, green: 0.45, blue: 0.95).opacity(0.12))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color(red: 0.62, green: 0.45, blue: 0.95).opacity(0.35), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-        .sheet(isPresented: $showOnboarding) {
-            OnboardingView(startingStep: 3, isEditing: true)
-                .environment(themeManager)
         }
     }
 }

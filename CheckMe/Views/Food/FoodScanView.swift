@@ -267,6 +267,12 @@ struct FoodScanView: View {
                 }
                 .padding(.top, 32)
 
+                // Profile nudge — shown if dietary/allergy profile is incomplete
+                if profileStore.profile.foodRestrictions.isEmpty && profileStore.profile.foodAllergies.isEmpty && profileStore.profile.digestiveConditions.isEmpty {
+                    FoodProfileNudgeBanner()
+                        .padding(.horizontal, 4)
+                }
+
                 // Mock label preview (like the corn cereal screenshot)
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Example label to scan")
@@ -366,6 +372,7 @@ struct FoodScanView: View {
                     && profileStore.profile.digestiveConditions.isEmpty
                 if hasNoFoodProfile {
                     FoodProfileNudgeBanner()
+                        .padding(.horizontal, 4)
                 }
 
                 Spacer(minLength: 100)
@@ -536,42 +543,49 @@ private struct StatChip: View {
 
 struct FoodProfileNudgeBanner: View {
     @Environment(ThemeManager.self) private var themeManager
+    @Environment(UserProfileStore.self) private var profileStore
     @State private var showOnboarding = false
 
     var body: some View {
-        Button { showOnboarding = true } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "person.crop.circle.badge.plus")
-                    .font(.title2)
-                    .foregroundStyle(themeManager.selectedTheme.colors.accent)
+        // Only show banner when profile is empty, but keep state alive while sheet is open
+        // so selections don't cause the sheet to close
+        Group {
+            if profileStore.profile.foodRestrictions.isEmpty && profileStore.profile.foodAllergies.isEmpty && profileStore.profile.digestiveConditions.isEmpty || showOnboarding {
+                Button { showOnboarding = true } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "person.crop.circle.badge.plus")
+                            .font(.title2)
+                            .foregroundStyle(themeManager.selectedTheme.colors.accent)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Set your food profile")
-                        .font(.subheadline).fontWeight(.semibold).foregroundStyle(.white)
-                    Text("Add your dietary preferences and allergies for personalised gut analysis.")
-                        .font(.caption).foregroundStyle(.white.opacity(0.6))
-                        .fixedSize(horizontal: false, vertical: true)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Set your food profile")
+                                .font(.subheadline).fontWeight(.semibold).foregroundStyle(.white)
+                            Text("Add your dietary preferences and allergies for personalised gut analysis.")
+                                .font(.caption).foregroundStyle(.white.opacity(0.6))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption).foregroundStyle(.white.opacity(0.3))
+                    }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(themeManager.selectedTheme.colors.accent.opacity(0.12))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(themeManager.selectedTheme.colors.accent.opacity(0.35), lineWidth: 1)
+                    )
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption).foregroundStyle(.white.opacity(0.3))
+                .buttonStyle(.plain)
+                .sheet(isPresented: $showOnboarding) {
+                    OnboardingView(startingStep: 1, isEditing: true)
+                        .environment(themeManager)
+                }
             }
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(themeManager.selectedTheme.colors.accent.opacity(0.12))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(themeManager.selectedTheme.colors.accent.opacity(0.35), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-        .sheet(isPresented: $showOnboarding) {
-            OnboardingView(startingStep: 1, isEditing: true)
-                .environment(themeManager)
         }
     }
 }

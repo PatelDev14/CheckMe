@@ -258,7 +258,7 @@ struct FAQView: View {
         ),
         FAQItem(
             question: "Why do I need Apple Intelligence enabled?",
-            answer: "CheckMe's ingredient analysis is powered by Apple Intelligence (Foundation Models). If it's not available, you can enable it in Settings → Apple Intelligence & Siri. Apple Intelligence is available on iPhone 15 Pro and later (or devices with at least 8 GB RAM running iOS 18+)."
+            answer: "CheckMe's ingredient analysis is powered by Apple Intelligence (Foundation Models). If it's not available, you can enable it in Settings → Apple Intelligence & Siri. Apple Intelligence requires an iPhone 15 Pro or later model, running iOS 18.1 or later, with Apple Intelligence enabled and the device language set to English (US)."
         ),
         FAQItem(
             question: "How accurate is the analysis?",
