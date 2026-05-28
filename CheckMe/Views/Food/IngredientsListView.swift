@@ -49,6 +49,12 @@ struct IngredientsListView: View {
                         // Profile attribution — only when user has set food-relevant profile data
                         ProfileAttributionBanner(tags: profileStore.profile.foodProfileTags)
 
+                        // Nudge to complete food profile — shown while profile is empty
+                        // Note: Condition is internal to the banner to prevent sheet from closing
+                        // when user makes their first selection during profile setup
+                        FoodProfileNudgeBanner()
+                            .environment(themeManager)
+
                         // Main gut prediction card
                         gutPredictionCard
 

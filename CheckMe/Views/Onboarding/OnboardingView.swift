@@ -35,16 +35,31 @@ struct OnboardingView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Progress dots
-                HStack(spacing: 8) {
-                    ForEach(0..<totalSteps, id: \.self) { i in
-                        Capsule()
-                            .fill(i == step ? Color.white : Color.white.opacity(0.3))
-                            .frame(width: i == step ? 24 : 8, height: 8)
-                            .animation(.spring(response: 0.3), value: step)
+                // Header with progress dots and close button (when editing)
+                HStack(spacing: 12) {
+                    // Progress dots
+                    HStack(spacing: 8) {
+                        ForEach(0..<totalSteps, id: \.self) { i in
+                            Capsule()
+                                .fill(i == step ? Color.white : Color.white.opacity(0.3))
+                                .frame(width: i == step ? 24 : 8, height: 8)
+                                .animation(.spring(response: 0.3), value: step)
+                        }
+                    }
+
+                    Spacer()
+
+                    // Close button only in editing mode
+                    if isEditing {
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(.white.opacity(0.7))
+                        }
                     }
                 }
                 .padding(.top, 60)
+                .padding(.horizontal, 28)
                 .padding(.bottom, 8)
 
                 // Step content — swipe disabled on step 0

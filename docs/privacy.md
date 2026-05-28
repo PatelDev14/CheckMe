@@ -33,7 +33,7 @@ All information is used **exclusively on your device** to provide personalized i
 
 ## Apple Intelligence
 
-CheckMe uses Apple's on-device machine learning models (foundation models) available on iPhone 15 Pro and later running iOS 18.1+. These models process ingredient data locally on your device without sending it to Apple's servers.
+CheckMe uses Apple's on-device machine learning models (Foundation Models) available on iPhone 15 Pro, iPhone 16, and later models running iOS 18.1 or later. These models process ingredient data locally on your device without sending it to Apple's servers.
 
 For more information about Apple Intelligence privacy, see [Apple's Apple Intelligence overview](https://www.apple.com/apple-intelligence/).
 

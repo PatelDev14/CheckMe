@@ -83,7 +83,7 @@ struct ContainerTypeResult {
     var containerType: String
 }
 
-// Plain struct — not AI-generated. Filled by NutritionViewModel.computeCompositionLayers().
+/// Represents nutrition layers computed from a product's composition.
 struct NutritionLayers {
     var containerType: String
     var layerNames: [String]

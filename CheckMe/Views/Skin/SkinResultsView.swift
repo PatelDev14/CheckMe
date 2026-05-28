@@ -37,11 +37,11 @@ struct SkinResultsView: View {
                         capturedPhotoCard
                         ProfileAttributionBanner(tags: profileStore.profile.skinProfileTags)
 
-                        // Nudge to complete skin profile — only shown while profile is empty
-                        if profileStore.profile.skinType.isEmpty && profileStore.profile.skinConditions.isEmpty {
-                            SkinProfileNudgeBanner()
-                                .environment(themeManager)
-                        }
+                        // Nudge to complete skin profile — shown while profile is empty
+                        // Note: Condition is internal to the banner to prevent sheet from closing
+                        // when user makes their first selection during profile setup
+                        SkinProfileNudgeBanner()
+                            .environment(themeManager)
 
                         skinPredictionCard
                         ingredientsSection          // tabbed: Breakdown / Ingredients

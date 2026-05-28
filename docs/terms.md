@@ -114,7 +114,7 @@ We reserve the right to release updates that modify or remove features and funct
 
 ## Governing Law
 
-These Terms of Use are governed by and construed in accordance with the laws of the United States, and you agree to submit to the exclusive jurisdiction of the courts located in the United States.
+These Terms of Use are governed by and construed in accordance with the laws of Canada & the United States, and you agree to submit to the exclusive jurisdiction of the courts located in Canada & the United States.
 
 ## Contact Us
 

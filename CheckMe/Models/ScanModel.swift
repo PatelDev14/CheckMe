@@ -213,9 +213,9 @@ struct SkinPrediction {
     var tip: String
 }
 
-// MARK: - Skin Ingredient Categories (Persisted + AI-Generated)
+// MARK: - Skin Ingredient Categories
 
-/// AI classifies every ingredient into one functional skincare category.
+/// Classifies every ingredient into functional skincare categories.
 /// Stored as a JSON-encoded [String:[String]] in a single scalar field to avoid
 /// SwiftData complexity — decoded on read via SavedSkinCategories.decoded().
 @Model
