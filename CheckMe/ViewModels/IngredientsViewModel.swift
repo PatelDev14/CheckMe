@@ -84,75 +84,84 @@ final class IngredientsViewModel {
         phase = .recognizingText
 
         do {
-            print("[IngredientsViewModel] Starting scan pipeline with image size: \(image.size)")
-
-            // Step 1: Vision OCR — extract all text from the label photo
-            print("[IngredientsViewModel] Calling TextRecognizer.recognizeText...")
+            // Step 1: Multi-pass Vision OCR
+            // recognizeText() internally runs 4 passes (raw, contrast-boosted, binarized, upscaled)
+            // and returns whichever produced the most text.
+            phase = .recognizingText
             let rawText = try await TextRecognizer.recognizeText(from: image)
 
-            print("[IngredientsViewModel] OCR complete. Text length: \(rawText.count)")
-            guard !rawText.isEmpty else {
-                print("[IngredientsViewModel] OCR returned empty text")
-                throw RecognitionError.noTextFound
-            }
+            guard !rawText.isEmpty else { throw RecognitionError.noTextFound }
 
             let ingredientBlock = TextRecognizer.extractIngredientBlock(from: rawText)
-            print("[IngredientsViewModel] Ingredient block extracted. Length: \(ingredientBlock.count)")
 
             // Step 2: AI product parsing — name + clean ingredient list
             phase = .extractingProduct
-            print("[IngredientsViewModel] Starting AI product extraction...")
             let productInfo = try await extractProductInfo(from: ingredientBlock, fullText: rawText)
             let validatedName = validateProductName(productInfo.productName, against: rawText)
             partialProductName = validatedName
             partialIngredients = productInfo.cleanedIngredients
 
-            print("[IngredientsViewModel] AI extraction complete: \(productInfo.productName), \(productInfo.cleanedIngredients.count) ingredients")
-
-            // Post-process the AI's ingredient list in four passes:
-            // 1. Expand — split any entries that are really a combined comma-separated list
-            //    (handles the failure mode where the AI returns all ingredients as one string)
-            // 2. Trim — strip leading/trailing whitespace from each entry
-            // 3. Filter — drop pure noise (no letters, fewer than 2 chars)
-            // 4. Deduplicate — remove exact duplicates while preserving original order
-            let cleanedIngredients = deduplicatedIngredients(
-                extractParentheticalIngredients(
-                    expandIngredients(productInfo.cleanedIngredients)
-                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                        .filter { ingredient in
-                            ingredient.count >= 2 &&
-                            ingredient.contains(where: { $0.isLetter })
-                        }
-                )
-            )
-            // Update UI with the cleaned count so the processing overlay is accurate
+            // Post-process: expand fused entries, trim, filter noise, deduplicate
+            var cleanedIngredients = postProcess(productInfo.cleanedIngredients)
             partialIngredients = cleanedIngredients
-            print("[IngredientsViewModel] After post-processing: \(cleanedIngredients.count) ingredients")
 
-            // If the AI found no ingredients, the photo likely wasn't a label
+            // --- Smart retry (two stages) ---
+            //
+            // Stage 1: block extraction may have cut the wrong section — skip it and feed
+            //   the full 4-pass OCR text straight to the AI. This is the cheapest fix
+            //   because we already have the highest-quality text in `rawText`.
+            //
+            // Stage 2: if still empty, run a single raw (unprocessed) OCR pass and feed
+            //   that to the AI. Handles cases where preprocessing artefacts from the
+            //   first round confused Vision (e.g. over-sharpened tiny text).
+            if cleanedIngredients.isEmpty {
+                phase = .extractingProduct
+                let retryInfo1 = try await extractProductInfo(from: rawText, fullText: rawText)
+                cleanedIngredients = postProcess(retryInfo1.cleanedIngredients)
+                if !cleanedIngredients.isEmpty {
+                    partialProductName = validateProductName(retryInfo1.productName, against: rawText)
+                    partialIngredients = cleanedIngredients
+                }
+            }
+
+            if cleanedIngredients.isEmpty {
+                phase = .recognizingText
+                let retryText = try await TextRecognizer.recognizeText(from: image, preprocess: false)
+                if !retryText.isEmpty {
+                    phase = .extractingProduct
+                    let retryInfo2 = try await extractProductInfo(from: retryText, fullText: retryText)
+                    cleanedIngredients = postProcess(retryInfo2.cleanedIngredients)
+                    if !cleanedIngredients.isEmpty {
+                        partialProductName = validateProductName(retryInfo2.productName, against: retryText)
+                        partialIngredients = cleanedIngredients
+                    }
+                }
+            }
+
             guard !cleanedIngredients.isEmpty else {
-                print("[IngredientsViewModel] AI found no ingredients — not an ingredient label")
                 throw RecognitionError.notAnIngredientLabel
             }
+
+            // partialProductName holds the best name from whichever pass succeeded
+            let finalName = partialProductName.isEmpty ? "Unknown Product" : partialProductName
 
             // Step 3: Personalized gut prediction
             phase = .analyzingGut
             let gutPrediction = try await analyzeGut(
-                productName: productInfo.productName,
+                productName: finalName,
                 ingredients: cleanedIngredients
             )
 
             // Step 4: General nutritional / formulation summary
             phase = .analyzingSummary
             let summary = try await generateSummary(
-                productName: productInfo.productName,
+                productName: finalName,
                 ingredients: cleanedIngredients
             )
 
             // Step 5: Persist to SwiftData
-            let itemName = validatedName
             let scan = ScanModel(
-                itemName: itemName.isEmpty ? "Unknown Product" : itemName,
+                itemName: finalName,
                 ingredients: cleanedIngredients,
                 category: .food
             )
@@ -189,6 +198,20 @@ final class IngredientsViewModel {
         currentScan = nil
         partialProductName = ""
         partialIngredients = []
+    }
+
+    // MARK: - Post-processing
+
+    /// Applies the four-pass cleanup to the AI's raw ingredient list:
+    /// expand comma-fused entries → trim whitespace → filter noise → deduplicate.
+    private func postProcess(_ ingredients: [String]) -> [String] {
+        deduplicatedIngredients(
+            extractParentheticalIngredients(
+                expandIngredients(ingredients)
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { $0.count >= 2 && $0.contains(where: { $0.isLetter }) }
+            )
+        )
     }
 
     // MARK: - Helpers
@@ -329,7 +352,6 @@ final class IngredientsViewModel {
 
     private func extractProductInfo(from ingredientBlock: String, fullText: String) async throws -> ProductInfo {
         // A single-use session per request is the recommended pattern for FoundationModels
-        print("[AI] Starting product info extraction with ingredient block length: \(ingredientBlock.count)")
         let session = LanguageModelSession(
             instructions: """
             You are a strict food label parser. Your ONLY job is to extract information that is \
@@ -342,7 +364,7 @@ final class IngredientsViewModel {
         Extract every ingredient and the product name precisely as described below.
 
         ── FULL LABEL TEXT ──────────────────────────────────
-        \(fullText.prefix(2000))
+        \(fullText.prefix(3000))
 
         ── DETECTED INGREDIENT SECTION ─────────────────────
         \(ingredientBlock.prefix(3000))
@@ -411,8 +433,6 @@ final class IngredientsViewModel {
         ]
         """
         let result = try await session.respond(to: prompt, generating: ProductInfo.self)
-        print("[AI] Product info extracted: \(result.content.productName)")
-        print("[AI] Ingredients: \(result.content.cleanedIngredients)")
         return result.content
     }
 
