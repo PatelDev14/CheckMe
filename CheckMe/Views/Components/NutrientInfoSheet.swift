@@ -36,7 +36,7 @@ extension NutrientKnowledge {
         "Calories": NutrientKnowledge(
             name: "Calories",
             icon: "flame.fill",
-            color: Color(red: 0.55, green: 0.45, blue: 0.95),
+            color: Color(red: 0.95, green: 0.60, blue: 0.10),
             role: "Calories are the unit of energy your body uses to power everything from breathing to exercise. They come from fat, carbohydrates, and protein.",
             dailyContext: "The standard reference is 2,000 calories per day, though your actual needs depend on age, size, and activity level.",
             sources: "All macronutrients contribute calories — fat provides 9 cal/g, carbs and protein each provide 4 cal/g.",

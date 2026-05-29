@@ -72,7 +72,7 @@ struct ExampleResultSheet: View {
 
     private var loadingView: some View {
         ZStack {
-            themeManager.selectedTheme.backgroundGradient.ignoresSafeArea()
+            AnimatedThemeBackground(theme: themeManager.selectedTheme)
             VStack(spacing: 14) {
                 ProgressView().tint(.white)
                 Text("Loading example…")
@@ -84,7 +84,7 @@ struct ExampleResultSheet: View {
 
     private var errorView: some View {
         ZStack {
-            themeManager.selectedTheme.backgroundGradient.ignoresSafeArea()
+            AnimatedThemeBackground(theme: themeManager.selectedTheme)
             VStack(spacing: 14) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.largeTitle)

@@ -7,8 +7,6 @@ struct MicronutrientsView: View {
     @Environment(ThemeManager.self) private var themeManager
     @State private var selectedNutrient: NutrientKnowledge?
 
-    private let accentColor = Color(red: 0.55, green: 0.45, blue: 0.95)
-
     // All nutrients in label order (US FDA 2020 format).
     // Always show all — zero means "not listed on label".
     var micronutrients: [MicronutrientInfo] {
@@ -28,7 +26,7 @@ struct MicronutrientsView: View {
             // Header
             HStack(spacing: 8) {
                 Image(systemName: "capsule.fill")
-                    .foregroundStyle(accentColor)
+                    .foregroundStyle(themeManager.selectedTheme.colors.accent)
                 Text("Vitamins & Minerals")
                     .font(.subheadline).fontWeight(.semibold)
                     .foregroundStyle(.white)
@@ -40,7 +38,7 @@ struct MicronutrientsView: View {
 
             // Divider
             Rectangle()
-                .fill(accentColor.opacity(0.15))
+                .fill(themeManager.selectedTheme.colors.accent.opacity(0.15))
                 .frame(height: 0.5)
 
             // Rows
@@ -65,7 +63,7 @@ struct MicronutrientsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.surface))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(accentColor.opacity(0.2), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(themeManager.selectedTheme.colors.accent.opacity(0.2), lineWidth: 1))
         .sheet(item: $selectedNutrient) { knowledge in
             NutrientInfoSheet(knowledge: knowledge)
         }
@@ -106,7 +104,7 @@ struct MicronutrientsView: View {
                             // Mini progress bar
                             ZStack(alignment: .leading) {
                                 RoundedRectangle(cornerRadius: 3)
-                                    .fill(accentColor.opacity(0.12))
+                                    .fill(themeManager.selectedTheme.colors.accent.opacity(0.12))
                                     .frame(width: 64, height: 5)
 
                                 RoundedRectangle(cornerRadius: 3)
@@ -151,7 +149,7 @@ struct MicronutrientsView: View {
     /// Colours the progress bar green → amber → red by % daily value.
     private func barColor(pct: Int) -> Color {
         if pct >= 20 { return Color(red: 0.95, green: 0.45, blue: 0.15) }   // high — amber
-        if pct >= 10 { return Color(red: 0.55, green: 0.45, blue: 0.95) }   // medium — accent
+        if pct >= 10 { return themeManager.selectedTheme.colors.accent }    // medium — accent
         return Color(red: 0.30, green: 0.80, blue: 0.55)                     // low — green
     }
 }

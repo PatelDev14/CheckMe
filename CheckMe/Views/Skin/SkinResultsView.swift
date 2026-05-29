@@ -18,15 +18,15 @@ struct SkinResultsView: View {
 
     // Ingredient section toggle — mirrors the food section pattern
     private enum IngredientViewMode: String, CaseIterable {
-        case list      = "Ingredients"
+        case list      = "List"
         case breakdown = "Breakdown"
-        var icon: String { self == .list ? "list.bullet" : "flask.fill" }
+        var icon: String { self == .list ? "list.bullet" : "chart.bar.fill" }
     }
     @State private var ingredientViewMode: IngredientViewMode = .list
 
     var body: some View {
         ZStack(alignment: .top) {
-            themeManager.selectedTheme.backgroundGradient.ignoresSafeArea()
+            AnimatedThemeBackground(theme: themeManager.selectedTheme, pattern: .hexSkin)
 
             ScrollView {
                 VStack(spacing: 0) {
@@ -307,21 +307,12 @@ struct SkinResultsView: View {
         if let cats = scan.skinCategories {
             let decoded = cats.decoded()
             if !decoded.isEmpty {
-                VStack(spacing: 0) {
-                    ForEach(decoded, id: \.category) { group in
-                        IngredientCategoryRow(
-                            category: group.category,
-                            ingredients: group.ingredients,
-                            accentColor: categoryColor(group.category),
-                            scan: scan
-                        )
-                        if group.category != decoded.last?.category {
-                            Divider().overlay(.white.opacity(0.06)).padding(.leading, 16)
-                        }
-                    }
-                }
-                .background(RoundedRectangle(cornerRadius: 16).fill(themeManager.selectedTheme.colors.surface))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(.white.opacity(0.08), lineWidth: 1))
+                AnimatedSkinBreakdownView(
+                    groups: decoded,
+                    scan: scan,
+                    irritants: scan.skinPrediction?.irritants ?? [],
+                    cautions: scan.skinPrediction?.cautions ?? []
+                )
             } else {
                 noBreakdownPlaceholder
             }
@@ -738,104 +729,286 @@ struct SkinRating {
     }
 }
 
-// MARK: - Ingredient Category Row
+// MARK: - Animated Skin Breakdown (mirrors AnimatedIngredientBreakdownView for food)
 
-private struct IngredientCategoryRow: View {
+private struct AnimatedSkinBreakdownView: View {
+    let groups: [(category: String, ingredients: [String])]
+    let scan: ScanModel
+    let irritants: [String]
+    let cautions: [String]
+
+    @Environment(ThemeManager.self) private var themeManager
+    @State private var visibleCount = 0
+    @State private var expandedIDs: Set<String> = []
+    @State private var hasAnimated = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            summaryStrip
+
+            LazyVStack(spacing: 10) {
+                ForEach(Array(groups.enumerated()), id: \.element.category) { index, group in
+                    if index < visibleCount {
+                        SkinCategoryCard(
+                            category: group.category,
+                            ingredients: group.ingredients,
+                            scan: scan,
+                            irritants: irritants,
+                            cautions: cautions,
+                            isExpanded: expandedIDs.contains(group.category),
+                            onToggle: { toggle(group.category) }
+                        )
+                        .transition(
+                            .asymmetric(
+                                insertion: .scale(scale: 0.85, anchor: .top).combined(with: .opacity),
+                                removal: .opacity
+                            )
+                        )
+                    }
+                }
+            }
+
+            if visibleCount < groups.count {
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(themeManager.selectedTheme.colors.surface.opacity(0.4))
+                    .frame(height: 56)
+                    .overlay(ProgressView().tint(.white.opacity(0.3)))
+            }
+        }
+        .onAppear {
+            guard !hasAnimated else { return }
+            hasAnimated = true
+            animateIn()
+        }
+    }
+
+    private var summaryStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(groups, id: \.category) { group in
+                    Button {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                            toggle(group.category)
+                        }
+                    } label: {
+                        let color = skinCategoryColor(group.category)
+                        HStack(spacing: 5) {
+                            Image(systemName: skinCategoryIcon(group.category))
+                                .font(.caption2)
+                            Text("\(group.ingredients.count)")
+                                .font(.caption2).fontWeight(.bold)
+                        }
+                        .foregroundStyle(color)
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(Capsule().fill(color.opacity(expandedIDs.contains(group.category) ? 0.25 : 0.10)))
+                        .overlay(Capsule().stroke(color.opacity(expandedIDs.contains(group.category) ? 0.6 : 0.2), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func animateIn() {
+        for index in groups.indices {
+            let delay = Double(index) * 0.11
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.68)) {
+                    visibleCount = index + 1
+                }
+            }
+        }
+    }
+
+    private func toggle(_ id: String) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
+            if expandedIDs.contains(id) { expandedIDs.remove(id) } else { expandedIDs.insert(id) }
+        }
+    }
+}
+
+// MARK: - Skin Category Card
+
+private struct SkinCategoryCard: View {
     let category: String
     let ingredients: [String]
-    let accentColor: Color
     let scan: ScanModel
+    let irritants: [String]
+    let cautions: [String]
+    let isExpanded: Bool
+    let onToggle: () -> Void
 
-    @State private var isExpanded = false
+    @Environment(ThemeManager.self) private var themeManager
 
-    private let categoryIcons: [String: String] = [
-        "Actives":       "bolt.fill",
-        "Humectants":    "drop.fill",
-        "Emollients":    "hand.raised.fill",
-        "Occlusives":    "shield.fill",
-        "Preservatives": "lock.fill",
-        "Fragrances":    "nose.fill",
-        "Surfactants":   "bubbles.and.sparkles.fill",
-        "Other":         "square.grid.2x2.fill",
-    ]
+    private var color: Color { skinCategoryColor(category) }
+    private var icon: String  { skinCategoryIcon(category) }
 
-    /// One-line plain-English description shown when the row is expanded.
-    private let categoryDescriptions: [String: String] = [
-        "Actives":       "Bioactive ingredients that target specific skin concerns (e.g. retinol, niacinamide, vitamin C)",
-        "Humectants":    "Draw moisture into the skin — keep it hydrated (e.g. glycerin, hyaluronic acid)",
-        "Emollients":    "Soften and smooth the skin's surface by filling gaps in the lipid barrier",
-        "Occlusives":    "Form a protective seal on skin to lock in moisture (e.g. dimethicone, petrolatum)",
-        "Preservatives": "Prevent bacterial and mould growth so the product stays safe to use",
-        "Fragrances":    "Scent compounds — natural or synthetic — that can cause sensitivity in some people",
-        "Surfactants":   "Cleansing agents that lift oil and dirt from the skin (mainly in wash-off products)",
-        "Other":         "Supporting ingredients: water, thickeners, pH adjusters, emulsifiers, and more",
-    ]
+    private var flaggedCount: Int {
+        ingredients.filter { item in
+            let lower = item.lowercased()
+            return irritants.contains { t in
+                let tl = t.lowercased()
+                return tl.contains(lower) || lower.contains(tl)
+            } || cautions.contains { c in
+                let cl = c.lowercased()
+                return cl.contains(lower) || lower.contains(cl)
+            }
+        }.count
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header — tappable to expand/collapse
-            Button {
-                withAnimation(.spring(response: 0.25)) { isExpanded.toggle() }
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: categoryIcons[category] ?? "circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(accentColor)
-                        .frame(width: 20)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(category)
-                            .font(.subheadline).fontWeight(.medium)
-                            .foregroundStyle(.white)
-
-                        // Description visible when expanded
-                        if isExpanded, let desc = categoryDescriptions[category] {
-                            Text(desc)
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.5))
-                                .fixedSize(horizontal: false, vertical: true)
-                                .transition(.opacity.combined(with: .move(edge: .top)))
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Text("\(ingredients.count)")
-                        .font(.caption2).fontWeight(.semibold)
-                        .foregroundStyle(accentColor)
-                        .padding(.horizontal, 7).padding(.vertical, 2)
-                        .background(Capsule().fill(accentColor.opacity(0.15)))
-
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.caption2).foregroundStyle(.white.opacity(0.3))
+            // Header — always visible, tappable
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(color.opacity(0.15)).frame(width: 40, height: 40)
+                    Image(systemName: icon).font(.subheadline).foregroundStyle(color)
                 }
-                .padding(.horizontal, 16).padding(.vertical, 12)
-            }
-            .buttonStyle(.plain)
 
-            // Expanded: tappable ingredient chips → SkinIngredientDetailView
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(category).font(.subheadline).fontWeight(.semibold).foregroundStyle(.white)
+                    HStack(spacing: 6) {
+                        Text("\(ingredients.count) ingredient\(ingredients.count == 1 ? "" : "s")")
+                            .font(.caption2).foregroundStyle(.white.opacity(0.55))
+                        Text(skinCategoryBadge(category))
+                            .font(.caption2).fontWeight(.medium)
+                            .foregroundStyle(color)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Capsule().fill(color.opacity(0.12)))
+                    }
+                }
+
+                Spacer()
+
+                if flaggedCount > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "exclamationmark").font(.caption2).fontWeight(.bold)
+                        Text("\(flaggedCount)").font(.caption2).fontWeight(.bold)
+                    }
+                    .foregroundStyle(.red)
+                    .padding(.horizontal, 7).padding(.vertical, 3)
+                    .background(Capsule().fill(.red.opacity(0.15)))
+                }
+
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.caption).foregroundStyle(.white.opacity(0.35))
+                    .animation(.spring(response: 0.3), value: isExpanded)
+            }
+            .padding(14)
+            .contentShape(Rectangle())
+            .onTapGesture { onToggle() }
+
+            // Expanded: coloured ingredient chips → SkinIngredientDetailView
             if isExpanded {
+                Divider().overlay(color.opacity(0.2))
                 FlowLayout(spacing: 6) {
-                    ForEach(ingredients, id: \.self) { ingredient in
-                        NavigationLink(destination: SkinIngredientDetailView(ingredientName: ingredient, scan: scan)) {
-                            HStack(spacing: 4) {
-                                Text(ingredient)
-                                    .font(.caption).fontWeight(.medium)
-                                    .foregroundStyle(accentColor)
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 8, weight: .semibold))
-                                    .foregroundStyle(accentColor.opacity(0.6))
-                            }
-                            .padding(.horizontal, 10).padding(.vertical, 5)
-                            .background(Capsule().fill(accentColor.opacity(0.1)))
-                            .overlay(Capsule().stroke(accentColor.opacity(0.25), lineWidth: 1))
+                    ForEach(ingredients, id: \.self) { item in
+                        NavigationLink(destination: SkinIngredientDetailView(ingredientName: item, scan: scan)) {
+                            SkinIngredientChip(
+                                name: item,
+                                irritants: irritants,
+                                cautions: cautions,
+                                categoryColor: color
+                            )
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16).padding(.bottom, 12)
+                .padding(14)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.surface))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(color.opacity(isExpanded ? 0.4 : 0.18), lineWidth: 1))
+        .animation(.spring(response: 0.35, dampingFraction: 0.72), value: isExpanded)
+    }
+}
+
+// MARK: - Skin Ingredient Chip
+
+private struct SkinIngredientChip: View {
+    let name: String
+    let irritants: [String]
+    let cautions: [String]
+    let categoryColor: Color
+
+    private enum ChipStatus { case irritant, caution, neutral }
+
+    private var status: ChipStatus {
+        let lower = name.lowercased()
+        if irritants.contains(where: { lower.contains($0.lowercased()) || $0.lowercased().contains(lower) }) { return .irritant }
+        if cautions.contains(where: { lower.contains($0.lowercased()) || $0.lowercased().contains(lower) }) { return .caution }
+        return .neutral
+    }
+
+    private var chipColor: Color {
+        switch status {
+        case .irritant: return .red
+        case .caution:  return Color(red: 0.95, green: 0.80, blue: 0.15)
+        case .neutral:  return categoryColor
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            switch status {
+            case .irritant:
+                Image(systemName: "xmark.circle.fill").font(.caption2).foregroundStyle(chipColor)
+            case .caution:
+                Image(systemName: "exclamationmark.circle.fill").font(.caption2).foregroundStyle(chipColor)
+            case .neutral:
+                EmptyView()
+            }
+            Text(name)
+                .font(.caption2).fontWeight(.medium)
+                .foregroundStyle(chipColor)
+                .lineLimit(2).multilineTextAlignment(.leading)
+        }
+        .padding(.horizontal, 9).padding(.vertical, 5)
+        .background(Capsule().fill(chipColor.opacity(0.12)))
+        .overlay(Capsule().stroke(chipColor.opacity(0.30), lineWidth: 1))
+    }
+}
+
+// MARK: - Skin Category Helpers (file-private so all structs above can access them)
+
+private func skinCategoryColor(_ category: String) -> Color {
+    switch category {
+    case "Actives":       return Color(red: 0.62, green: 0.45, blue: 0.95)
+    case "Humectants":    return .cyan
+    case "Emollients":    return Color(red: 0.35, green: 0.75, blue: 0.55)
+    case "Occlusives":    return .blue
+    case "Preservatives": return .orange
+    case "Fragrances":    return .pink
+    case "Surfactants":   return .yellow
+    default:              return .gray
+    }
+}
+
+private func skinCategoryIcon(_ category: String) -> String {
+    switch category {
+    case "Actives":       return "bolt.fill"
+    case "Humectants":    return "drop.fill"
+    case "Emollients":    return "hand.raised.fill"
+    case "Occlusives":    return "shield.fill"
+    case "Preservatives": return "lock.fill"
+    case "Fragrances":    return "nose.fill"
+    case "Surfactants":   return "bubbles.and.sparkles.fill"
+    default:              return "square.grid.2x2.fill"
+    }
+}
+
+private func skinCategoryBadge(_ category: String) -> String {
+    switch category {
+    case "Actives":       return "Bioactive"
+    case "Humectants":    return "Hydrating"
+    case "Emollients":    return "Smoothing"
+    case "Occlusives":    return "Protective"
+    case "Preservatives": return "Watch"
+    case "Fragrances":    return "Sensitivity"
+    case "Surfactants":   return "Cleansing"
+    default:              return "Neutral"
     }
 }

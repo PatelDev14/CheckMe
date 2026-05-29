@@ -34,8 +34,7 @@ struct IngredientsListView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            themeManager.selectedTheme.backgroundGradient
-                .ignoresSafeArea()
+            AnimatedThemeBackground(theme: themeManager.selectedTheme, pattern: .gutCells)
 
             ScrollView {
                 VStack(spacing: 0) {

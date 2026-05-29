@@ -24,8 +24,6 @@ struct NutritionScanView: View {
     @State private var compareScanA: ScanModel?
     @State private var compareScanB: ScanModel?
 
-    private let accentColor = Color(red: 0.55, green: 0.45, blue: 0.95)
-
     private var filteredScans: [ScanModel] {
         guard !searchText.isEmpty else { return scans }
         return scans.filter { $0.itemName.localizedCaseInsensitiveContains(searchText) }
@@ -34,7 +32,7 @@ struct NutritionScanView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                themeManager.selectedTheme.backgroundGradient.ignoresSafeArea()
+                AnimatedThemeBackground(theme: themeManager.selectedTheme)
 
                 Group {
                     if scans.isEmpty { emptyState } else { scanList }
@@ -171,7 +169,7 @@ struct NutritionScanView: View {
                         } label: {
                             Label("Compare", systemImage: "rectangle.split.2x1")
                                 .font(.subheadline).fontWeight(.semibold)
-                                .foregroundStyle(accentColor)
+                                .foregroundStyle(themeManager.selectedTheme.colors.accent)
                         }
                         Divider()
                             .frame(height: 18)
@@ -196,7 +194,7 @@ struct NutritionScanView: View {
 
     private var statsRow: some View {
         HStack(spacing: 12) {
-            NutritionStatChip(value: "\(scans.count)", label: "Scans", icon: "camera.viewfinder", color: accentColor)
+            NutritionStatChip(value: "\(scans.count)", label: "Scans", icon: "camera.viewfinder", color: themeManager.selectedTheme.colors.accent)
             NutritionStatChip(value: avgCaloriesText, label: "Avg Calories", icon: "flame.fill", color: .orange)
             NutritionStatChip(value: "\(highSodiumCount)", label: "High Sodium", icon: "drop.fill", color: .yellow)
         }
@@ -224,7 +222,7 @@ struct NutritionScanView: View {
                 VStack(spacing: 10) {
                     Image(systemName: "chart.pie.fill")
                         .font(.system(size: 60))
-                        .foregroundStyle(accentColor)
+                        .foregroundStyle(themeManager.selectedTheme.colors.accent)
                     Text("See What's In Your Food")
                         .font(.title2).fontWeight(.bold).foregroundStyle(.white)
                         .multilineTextAlignment(.center)
@@ -279,11 +277,11 @@ struct NutritionScanView: View {
                             .font(.subheadline).fontWeight(.semibold)
                         Image(systemName: "arrow.right").font(.caption)
                     }
-                    .foregroundStyle(accentColor)
+                    .foregroundStyle(themeManager.selectedTheme.colors.accent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(RoundedRectangle(cornerRadius: 14).fill(accentColor.opacity(0.12)))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(accentColor.opacity(0.35), lineWidth: 1))
+                    .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.accent.opacity(0.12)))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(themeManager.selectedTheme.colors.accent.opacity(0.35), lineWidth: 1))
                 }
                 .sheet(isPresented: $showSamplePreview) {
                     ExampleResultSheet(category: .nutrition)
@@ -303,7 +301,7 @@ struct NutritionScanView: View {
                         HStack(spacing: 14) {
                             Image(systemName: icon)
                                 .font(.title3)
-                                .foregroundStyle(accentColor)
+                                .foregroundStyle(themeManager.selectedTheme.colors.accent)
                                 .frame(width: 32)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(label).font(.subheadline).fontWeight(.medium).foregroundStyle(.white)
@@ -322,7 +320,7 @@ struct NutritionScanView: View {
 
                     ForEach([
                         ("flame.fill",    Color.orange, "Calories & Macros",   "Total calories, fat, carbs, protein per serving"),
-                        ("chart.bar.fill",accentColor,  "Daily Value %",        "See how each nutrient stacks against your daily needs"),
+                        ("chart.bar.fill",themeManager.selectedTheme.colors.accent,  "Daily Value %",        "See how each nutrient stacks against your daily needs"),
                         ("drop.fill",     Color.yellow, "Key Nutrients",        "Sodium, sugar, fibre, vitamins and minerals"),
                     ], id: \.2) { icon, color, label, detail in
                         HStack(spacing: 14) {
@@ -385,8 +383,8 @@ struct NutritionScanView: View {
             .padding(.horizontal, 28).padding(.vertical, 16)
             .background(
                 Capsule()
-                    .fill(accentColor)
-                    .shadow(color: accentColor.opacity(0.5), radius: 12, y: 4)
+                    .fill(themeManager.selectedTheme.colors.accent)
+                    .shadow(color: themeManager.selectedTheme.colors.accent.opacity(0.5), radius: 12, y: 4)
             )
         }
         .padding(.bottom, 24)
@@ -419,8 +417,6 @@ struct NutritionHistoryCard: View {
     var isSelectMode: Bool = false
     @Environment(ThemeManager.self) private var themeManager
 
-    private let accentColor = Color(red: 0.55, green: 0.45, blue: 0.95)
-
     var body: some View {
         HStack(spacing: 14) {
             if isSelectMode {
@@ -431,8 +427,8 @@ struct NutritionHistoryCard: View {
             }
 
             ZStack {
-                Circle().fill(accentColor.opacity(0.15)).frame(width: 48, height: 48)
-                Image(systemName: "chart.pie.fill").foregroundStyle(accentColor).font(.title3)
+                Circle().fill(themeManager.selectedTheme.colors.accent.opacity(0.15)).frame(width: 48, height: 48)
+                Image(systemName: "chart.pie.fill").foregroundStyle(themeManager.selectedTheme.colors.accent).font(.title3)
             }
 
             VStack(alignment: .leading, spacing: 4) {

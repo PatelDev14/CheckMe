@@ -274,7 +274,7 @@ struct NutritionCameraView: View {
     private func cropScreen(_ image: UIImage) -> some View {
         ImageCropView(
             image: image,
-            tintColor: Color(red: 0.55, green: 0.45, blue: 0.95),
+            tintColor: themeManager.selectedTheme.colors.accent,
             onCrop: { cropped in
                 guard let vm = viewModel else { return }
                 capturedImageForPreview = nil
