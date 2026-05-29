@@ -37,7 +37,7 @@ struct SkinScanView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                themeManager.selectedTheme.backgroundGradient.ignoresSafeArea()
+                AnimatedThemeBackground(theme: themeManager.selectedTheme, pattern: .hexSkin)
 
                 Group {
                     if scans.isEmpty { emptyState } else { scanList }
@@ -490,7 +490,7 @@ struct SkinProfileNudgeBanner: View {
                     HStack(spacing: 14) {
                         Image(systemName: "person.crop.circle.badge.plus")
                             .font(.title2)
-                            .foregroundStyle(Color(red: 0.62, green: 0.45, blue: 0.95))
+                            .foregroundStyle(themeManager.selectedTheme.colors.accent)
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Set your skin profile")
@@ -508,11 +508,11 @@ struct SkinProfileNudgeBanner: View {
                     .padding(14)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color(red: 0.62, green: 0.45, blue: 0.95).opacity(0.12))
+                            .fill(themeManager.selectedTheme.colors.accent.opacity(0.12))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color(red: 0.62, green: 0.45, blue: 0.95).opacity(0.35), lineWidth: 1)
+                            .stroke(themeManager.selectedTheme.colors.accent.opacity(0.35), lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)

@@ -14,14 +14,13 @@ struct NutritionResultsView: View {
     @State private var showingPhoto = false
     @FocusState private var nameFocused: Bool
 
-    private let accentColor = Color(red: 0.55, green: 0.45, blue: 0.95)
     private let servingOptions: [(label: String, value: Double)] = [
         ("½×", 0.5), ("1×", 1.0), ("1½×", 1.5), ("2×", 2.0)
     ]
 
     var body: some View {
         ZStack(alignment: .top) {
-            themeManager.selectedTheme.backgroundGradient.ignoresSafeArea()
+            AnimatedThemeBackground(theme: themeManager.selectedTheme)
 
             ScrollView {
                 VStack(spacing: 0) {
@@ -63,7 +62,7 @@ struct NutritionResultsView: View {
     private var headerSection: some View {
         ZStack(alignment: .bottom) {
             LinearGradient(
-                colors: [accentColor.opacity(0.6), themeManager.selectedTheme.colors.background],
+                colors: [themeManager.selectedTheme.colors.accent.opacity(0.6), themeManager.selectedTheme.colors.background],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -108,7 +107,7 @@ struct NutritionResultsView: View {
                     HStack(spacing: 12) {
                         Label("\(Int(nutrition.calories * servingsMultiplier)) cal", systemImage: "flame.fill")
                             .font(.caption).fontWeight(.semibold)
-                            .foregroundStyle(accentColor)
+                            .foregroundStyle(themeManager.selectedTheme.colors.accent)
                         Text("·").foregroundStyle(.white.opacity(0.3))
                         Text("\(servingsMultiplier == 1.0 ? "Per" : "\(formatMultiplier(servingsMultiplier)) ×") \(nutrition.servingSize)")
                             .font(.caption)
@@ -153,7 +152,7 @@ struct NutritionResultsView: View {
                 }
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.surface))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(accentColor.opacity(0.2), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(themeManager.selectedTheme.colors.accent.opacity(0.2), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .sheet(isPresented: $showingPhoto) {
@@ -209,8 +208,8 @@ struct NutritionResultsView: View {
                             .background(
                                 RoundedRectangle(cornerRadius: 10)
                                     .fill(servingsMultiplier == option.value
-                                          ? accentColor
-                                          : accentColor.opacity(0.12))
+                                          ? themeManager.selectedTheme.colors.accent
+                                          : themeManager.selectedTheme.colors.accent.opacity(0.12))
                             )
                             .foregroundStyle(servingsMultiplier == option.value
                                              ? .white
@@ -223,7 +222,7 @@ struct NutritionResultsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.surface))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(accentColor.opacity(0.2), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(themeManager.selectedTheme.colors.accent.opacity(0.2), lineWidth: 1))
     }
 
     // MARK: - Insight Card
@@ -232,7 +231,7 @@ struct NutritionResultsView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
-                    .foregroundStyle(accentColor)
+                    .foregroundStyle(themeManager.selectedTheme.colors.accent)
                 Text("Macro Insight")
                     .font(.subheadline).fontWeight(.semibold)
                     .foregroundStyle(.white)
@@ -246,7 +245,7 @@ struct NutritionResultsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.surface))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(accentColor.opacity(0.2), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(themeManager.selectedTheme.colors.accent.opacity(0.2), lineWidth: 1))
     }
 
     // MARK: - No Data

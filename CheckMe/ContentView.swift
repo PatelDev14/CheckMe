@@ -16,10 +16,9 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            // Global gradient background — sits behind the TabView so every screen
-            // gets a consistent subtle tinted gradient instead of a flat dark solid.
-            themeManager.selectedTheme.backgroundGradient
-                .ignoresSafeArea()
+            // Animated Aurora background — sits behind the TabView so every screen
+            // gets a living, breathing tinted background instead of a flat dark solid.
+            AnimatedThemeBackground(theme: themeManager.selectedTheme)
 
             if fmManager.isModelAvailable {
                 TabView {
@@ -59,7 +58,7 @@ private struct AIUnavailableView: View {
 
     var body: some View {
         ZStack {
-            themeManager.selectedTheme.backgroundGradient.ignoresSafeArea()
+            AnimatedThemeBackground(theme: themeManager.selectedTheme)
 
             VStack(spacing: 32) {
                 Spacer()

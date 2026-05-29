@@ -40,8 +40,7 @@ struct FoodScanView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                themeManager.selectedTheme.backgroundGradient
-                    .ignoresSafeArea()
+                AnimatedThemeBackground(theme: themeManager.selectedTheme, pattern: .gutCells)
 
                 Group {
                     if scans.isEmpty {

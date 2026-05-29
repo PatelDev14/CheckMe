@@ -21,8 +21,6 @@ struct NutritionFactsCard: View {
         _isExpanded = State(initialValue: startsExpanded)
     }
 
-    private let accentColor = Color(red: 0.55, green: 0.45, blue: 0.95)
-
     var body: some View {
         VStack(spacing: 0) {
             headerRow
@@ -31,7 +29,7 @@ struct NutritionFactsCard: View {
         .background(RoundedRectangle(cornerRadius: 16).fill(themeManager.selectedTheme.colors.surface))
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(accentColor.opacity(isExpanded ? 0.4 : 0.18), lineWidth: 1)
+                .stroke(themeManager.selectedTheme.colors.accent.opacity(isExpanded ? 0.4 : 0.18), lineWidth: 1)
         )
         .animation(.spring(response: 0.35, dampingFraction: 0.72), value: isExpanded)
         .sheet(item: $selectedNutrient) { knowledge in
@@ -50,11 +48,11 @@ struct NutritionFactsCard: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(accentColor.opacity(0.15))
+                        .fill(themeManager.selectedTheme.colors.accent.opacity(0.15))
                         .frame(width: 40, height: 40)
                     Image(systemName: "chart.pie.fill")
                         .font(.subheadline)
-                        .foregroundStyle(accentColor)
+                        .foregroundStyle(themeManager.selectedTheme.colors.accent)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -87,13 +85,13 @@ struct NutritionFactsCard: View {
 
     @ViewBuilder
     private var expandedContent: some View {
-        Divider().overlay(accentColor.opacity(0.2))
+        Divider().overlay(themeManager.selectedTheme.colors.accent.opacity(0.2))
 
         LazyVGrid(
             columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4),
             spacing: 18
         ) {
-            NutrientRing(label: "Calories", value: facts.calories      * servingsMultiplier, unit: "kcal", daily: NutritionDailyValues.calories,      color: Color(red: 0.55, green: 0.45, blue: 0.95), index: 0) { selectedNutrient = NutrientKnowledge.all["Calories"] }
+            NutrientRing(label: "Calories", value: facts.calories      * servingsMultiplier, unit: "kcal", daily: NutritionDailyValues.calories,      color: themeManager.selectedTheme.colors.accent, index: 0) { selectedNutrient = NutrientKnowledge.all["Calories"] }
             NutrientRing(label: "Fat",      value: facts.totalFatG     * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.totalFatG,     color: Color(red: 0.95, green: 0.55, blue: 0.10), index: 1) { selectedNutrient = NutrientKnowledge.all["Fat"] }
             NutrientRing(label: "Carbs",    value: facts.totalCarbsG   * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.totalCarbsG,   color: Color(red: 0.25, green: 0.55, blue: 0.95), index: 2) { selectedNutrient = NutrientKnowledge.all["Carbs"] }
             NutrientRing(label: "Protein",  value: facts.proteinG      * servingsMultiplier, unit: "g",    daily: NutritionDailyValues.proteinG,      color: Color(red: 0.20, green: 0.80, blue: 0.45), index: 3) { selectedNutrient = NutrientKnowledge.all["Protein"] }

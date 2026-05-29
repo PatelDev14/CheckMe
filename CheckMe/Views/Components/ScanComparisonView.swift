@@ -35,8 +35,7 @@ struct ScanComparisonView: View {
 
     var body: some View {
         ZStack {
-            themeManager.selectedTheme.backgroundGradient
-                .ignoresSafeArea()
+            AnimatedThemeBackground(theme: themeManager.selectedTheme)
 
             ScrollView {
                 VStack(spacing: 16) {
