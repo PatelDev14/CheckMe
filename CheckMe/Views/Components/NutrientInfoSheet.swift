@@ -162,64 +162,278 @@ extension NutrientKnowledge {
     ]
 }
 
+// MARK: - Extra knowledge (gut + pairing) keyed by nutrient name
+
+private enum NutrientExtra {
+    static let gutImpact: [String: String] = [
+        "Calories":   "Excess calories are stored as fat if not burned. The source matters — calories from fiber-rich carbs or lean protein are processed differently than those from refined sugar or saturated fat.",
+        "Fat":        "Slows digestion and boosts satiety. Healthy fats support the gut lining and help reduce inflammation; excessive saturated fat can shift gut bacteria toward less beneficial species.",
+        "Sat. Fat":   "High intake may promote gut inflammation and reduce microbiome diversity. Swapping some saturated fat for unsaturated sources benefits both heart and gut health.",
+        "Carbs":      "Primary fermentation fuel for gut bacteria. Complex carbs from whole grains feed beneficial microbiome populations; refined carbs digest fast, leaving little for the microbiome.",
+        "Sugar":      "Simple sugars digest quickly; excess intake feeds harmful gut bacteria and can contribute to dysbiosis (microbial imbalance) over time. Natural sugars in fruit come with fiber that slows this effect.",
+        "Protein":    "Broken down into amino acids in the small intestine. Some undigested protein reaches the colon where bacteria ferment it — excessive amounts can produce ammonia and other by-products.",
+        "Fiber":      "Prebiotic fuel for beneficial gut bacteria — fermented into short-chain fatty acids (SCFAs) like butyrate that protect the colon lining and support the immune system.",
+        "Sodium":     "High sodium intake can reduce microbiome diversity and alter gut motility, contributing to bloating and water retention in sensitive individuals.",
+        "Potassium":  "Supports smooth muscle function along the digestive tract. Adequate intake helps maintain healthy bowel regularity and reduces cramping.",
+        "Calcium":    "Binds to excess fat and bile acids in the gut, helping to carry them out of the body — this may reduce colon cancer risk.",
+        "Iron":       "Can irritate the gut lining in high doses. Unabsorbed iron in the colon feeds some opportunistic bacteria; food-based iron is generally gentler than supplements.",
+        "Vitamin A":  "Critical for maintaining the integrity of the gut mucosal lining — the protective barrier between gut contents and the bloodstream.",
+        "Vitamin C":  "Its antioxidant properties protect gut cells from oxidative damage. Also enhances iron absorption and supports the connective tissue of the gut wall.",
+        "Vitamin D":  "Regulates immune cells in the gut lining and helps maintain the intestinal barrier. Deficiency is linked to increased gut permeability ('leaky gut').",
+    ]
+
+    static let pairingTip: [String: String] = [
+        "Calories":   "Balance calorie-dense foods with fiber-rich vegetables and protein to slow absorption and sustain energy longer.",
+        "Fat":        "Pair with fat-soluble vitamins A, D, E, and K — fat is required for their absorption. Olive oil on a salad dramatically boosts the nutrients you absorb.",
+        "Sat. Fat":   "Balance with unsaturated fats (avocado, olive oil, nuts) and high-fiber foods to offset the gut impact.",
+        "Carbs":      "Combine with protein and healthy fat to slow glucose release and prevent energy spikes and crashes.",
+        "Sugar":      "Pair with fiber to slow absorption. Avoid high-sugar foods on an empty stomach — the rapid spike is harder on blood sugar control.",
+        "Protein":    "Vitamin C-rich foods boost plant-based protein absorption. Eating protein with complex carbs helps direct amino acids to muscle repair.",
+        "Fiber":      "Drink more water when increasing fiber — it needs fluid to move smoothly through the gut and prevent constipation.",
+        "Sodium":     "Potassium-rich foods (bananas, sweet potato, avocado) help counterbalance sodium's blood pressure effects.",
+        "Potassium":  "Pairs well with magnesium-rich foods — both work together to support muscle function, nerve signaling, and healthy blood pressure.",
+        "Calcium":    "Always pair with Vitamin D — without it, your body absorbs very little calcium regardless of how much you consume.",
+        "Iron":       "Eat with Vitamin C to boost non-haem iron absorption up to 3×. Avoid coffee, tea, or dairy within an hour — tannins and calcium block iron uptake.",
+        "Vitamin A":  "Needs a small amount of dietary fat to be absorbed. A drizzle of oil on roasted vegetables dramatically improves uptake.",
+        "Vitamin C":  "Pairs powerfully with iron-rich foods. Also regenerates Vitamin E after it neutralises free radicals — the two antioxidants work as a team.",
+        "Vitamin D":  "Best absorbed with a fatty meal. Vitamin K2 works synergistically — it helps direct the calcium that Vitamin D absorbs to bones rather than arteries.",
+    ]
+
+    static let deficiencySigns: [String: String] = [
+        "Calories":  "Persistent fatigue, difficulty concentrating, feeling constantly cold, muscle loss over time, and poor wound healing — your body is running below its energy needs.",
+        "Fat":       "Dry, flaky skin and dull hair, poor wound healing, fatigue, hormonal disruption, and difficulty absorbing vitamins A, D, E, and K.",
+        "Sat. Fat":  "Rarely a deficiency concern — most diets contain enough. Extremely low fat intake overall is more likely to cause issues than low saturated fat specifically.",
+        "Carbs":     "Brain fog, irritability, fatigue, and reduced exercise performance. Very low carb intake forces the body into ketosis, which some people tolerate well, others do not.",
+        "Sugar":     "Not a deficiency concern — your body makes all the glucose it needs from complex carbohydrates, protein, and fat.",
+        "Protein":   "Muscle wasting, slow wound and injury healing, frequent illness due to weakened immunity, thinning hair and nails, and fluid retention (oedema in severe cases).",
+        "Fiber":     "Chronic constipation, blood sugar spikes after meals, elevated LDL cholesterol, and reduced microbiome diversity — all linked to higher long-term disease risk.",
+        "Sodium":    "Muscle cramps, persistent headache, nausea, confusion, and extreme fatigue. True deficiency is rare — far more people consume too much than too little.",
+        "Potassium": "Muscle weakness and cramping (especially legs), constipation, heart palpitations, fatigue, and high blood pressure. Common in people who eat few fruits and vegetables.",
+        "Calcium":   "Muscle spasms and cramps, numbness or tingling in hands and feet, brittle nails, and — over years — weakened bones leading to osteoporosis and fracture risk.",
+        "Iron":      "Fatigue even with adequate sleep, pale skin and gums, brittle or spoon-shaped nails, brain fog, shortness of breath on light exertion, and feeling cold. Iron deficiency anaemia is the world's most common nutritional deficiency.",
+        "Vitamin A": "Difficulty seeing in dim light (night blindness) is often the first sign. Also dry eyes, dry skin, frequent respiratory infections, and slow wound healing.",
+        "Vitamin C": "Fatigue, bruising easily from minor bumps, slow wound healing, and dry skin. Severe deficiency causes scurvy — bleeding gums, joint pain, and loose teeth.",
+        "Vitamin D": "Bone ache and tenderness, muscle weakness, fatigue that sleep doesn't fix, frequent colds and infections, and low mood. Deficiency is extremely common, especially in northern latitudes or with limited sun exposure.",
+    ]
+}
+
 // MARK: - Sheet View
 
 struct NutrientInfoSheet: View {
     let knowledge: NutrientKnowledge
+    /// Optional: pass the 0–1 fraction of the daily value from the calling context.
+    /// When provided, a visual daily-value gauge is shown in the header.
+    var dailyValueFraction: Double? = nil
+
     @Environment(\.dismiss) private var dismiss
+    @State private var revealed = false
+    @State private var barProgress: CGFloat = 0
+
+    // MARK: - Layout config
+
+    private let blocks: [(icon: String, label: String, body: KeyPath<NutrientKnowledge, String>)] = [
+        ("info.circle.fill",       "What it does",          \.role),
+        ("chart.bar.xaxis",        "Daily Value context",   \.dailyContext),
+        ("leaf.fill",              "Food sources",          \.sources),
+        ("exclamationmark.circle", "Good to know",          \.watchOut),
+    ]
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Hero icon
-                    HStack {
-                        Spacer()
-                        ZStack {
-                            Circle()
-                                .fill(knowledge.color.opacity(0.15))
-                                .frame(width: 80, height: 80)
-                            Image(systemName: knowledge.icon)
-                                .font(.system(size: 34))
-                                .foregroundStyle(knowledge.color)
-                        }
-                        Spacer()
-                    }
-                    .padding(.top, 8)
+                VStack(spacing: 16) {
+                    heroSection
+                        .staggerReveal(revealed, delay: 0.0)
 
-                    infoBlock(title: "What it does", body: knowledge.role)
-                    infoBlock(title: "Daily Value context", body: knowledge.dailyContext)
-                    infoBlock(title: "Food sources", body: knowledge.sources)
-                    infoBlock(title: "Good to know", body: knowledge.watchOut)
+                    if let fraction = dailyValueFraction {
+                        dailyValueBar(fraction: fraction)
+                            .staggerReveal(revealed, delay: 0.08)
+                    }
+
+                    ForEach(Array(blocks.enumerated()), id: \.offset) { index, block in
+                        infoBlock(
+                            icon: block.icon,
+                            title: block.label,
+                            body: knowledge[keyPath: block.body]
+                        )
+                        .staggerReveal(revealed, delay: Double(index) * 0.07 + 0.14)
+                    }
+
+                    // Gut impact block
+                    if let gut = NutrientExtra.gutImpact[knowledge.name] {
+                        infoBlock(icon: "microbe.fill", title: "Gut & Digestion", body: gut)
+                            .staggerReveal(revealed, delay: 0.14 + Double(blocks.count) * 0.07)
+                    }
+
+                    // Deficiency signs block
+                    if let def = NutrientExtra.deficiencySigns[knowledge.name] {
+                        infoBlock(icon: "battery.0percent", title: "Signs of low intake", body: def)
+                            .staggerReveal(revealed, delay: 0.14 + Double(blocks.count + 1) * 0.07)
+                    }
+
+                    // Pairing tip block
+                    if let pair = NutrientExtra.pairingTip[knowledge.name] {
+                        infoBlock(icon: "fork.knife", title: "Pairs well with", body: pair)
+                            .staggerReveal(revealed, delay: 0.14 + Double(blocks.count + 2) * 0.07)
+                    }
+
+                    Spacer(minLength: 24)
                 }
-                .padding(20)
+                .padding(16)
             }
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle(knowledge.name)
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .fontWeight(.semibold)
+                        .foregroundStyle(knowledge.color)
+                }
+            }
+            .onAppear {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.05)) {
+                    revealed = true
+                }
+                if let fraction = dailyValueFraction {
+                    withAnimation(.easeInOut(duration: 0.85).delay(0.25)) {
+                        barProgress = CGFloat(min(fraction, 1.0))
+                    }
                 }
             }
         }
     }
 
-    private func infoBlock(title: String, body: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title.uppercased())
-                .font(.caption).fontWeight(.semibold)
-                .foregroundStyle(knowledge.color)
-                .tracking(0.8)
-            Text(body)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
+    // MARK: - Hero
+
+    private var heroSection: some View {
+        HStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(knowledge.color.opacity(0.12))
+                    .frame(width: 64, height: 64)
+                Circle()
+                    .stroke(knowledge.color.opacity(0.25), lineWidth: 1.5)
+                    .frame(width: 64, height: 64)
+                Image(systemName: knowledge.icon)
+                    .font(.system(size: 26))
+                    .foregroundStyle(knowledge.color)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(knowledge.name)
+                    .font(.title3).fontWeight(.bold)
+                Text("Tap any section to learn more")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(knowledge.color.opacity(0.2), lineWidth: 1)
+        )
+    }
+
+    // MARK: - Daily Value Bar
+
+    private func dailyValueBar(fraction: Double) -> some View {
+        let pct = Int(min(fraction * 100, 999))
+        let barColor: Color = fraction < 0.5 ? knowledge.color : fraction < 1.0 ? .orange : .red
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "chart.bar.fill")
+                    .foregroundStyle(barColor)
+                    .font(.subheadline)
+                Text("Daily Value")
+                    .font(.subheadline).fontWeight(.semibold)
+                Spacer()
+                Text("\(pct)%")
+                    .font(.title3).fontWeight(.bold)
+                    .foregroundStyle(barColor)
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.secondary.opacity(0.15))
+                        .frame(height: 10)
+                    Capsule()
+                        .fill(LinearGradient(
+                            colors: [barColor.opacity(0.7), barColor],
+                            startPoint: .leading, endPoint: .trailing
+                        ))
+                        .frame(width: geo.size.width * barProgress, height: 10)
+                }
+            }
+            .frame(height: 10)
+
+            Text(fraction >= 1.0
+                 ? "Over your daily limit — consider this product as part of your full day."
+                 : "This serving covers \(pct)% of the recommended daily amount.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(barColor.opacity(0.25), lineWidth: 1)
+        )
+    }
+
+    // MARK: - Info Block
+
+    private func infoBlock(icon: String, title: String, body: String) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            // Colored left accent bar — use RoundedRectangle so it stretches naturally
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(knowledge.color.opacity(0.5))
+                .frame(width: 3)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: icon)
+                        .font(.caption)
+                        .foregroundStyle(knowledge.color)
+                        .frame(width: 16)
+                    Text(title.uppercased())
+                        .font(.caption).fontWeight(.semibold)
+                        .foregroundStyle(knowledge.color)
+                        .tracking(0.6)
+                }
+                Text(body)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .lineSpacing(3)
+            }
+            // maxWidth forces the VStack to fill all remaining width so text
+            // wraps flush to the right edge instead of hugging its content.
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+        }
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+// MARK: - Stagger animation helper
+
+private extension View {
+    func staggerReveal(_ revealed: Bool, delay: Double) -> some View {
+        self
+            .opacity(revealed ? 1 : 0)
+            .offset(y: revealed ? 0 : 6)
+            .animation(.spring(response: 0.6, dampingFraction: 0.85).delay(delay), value: revealed)
     }
 }

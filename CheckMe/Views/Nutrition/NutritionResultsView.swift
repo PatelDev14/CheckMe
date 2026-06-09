@@ -32,6 +32,7 @@ struct NutritionResultsView: View {
                             capturedPhotoCard
                             servingPickerCard(nutrition)
                             NutritionFactsCard(facts: nutrition, servingsMultiplier: servingsMultiplier, startsExpanded: true)
+                            macroBalanceCard(nutrition)
                             MicronutrientsView(nutrition: nutrition, servingsMultiplier: servingsMultiplier)
 
                             if !nutrition.aiInsight.isEmpty {
@@ -223,6 +224,91 @@ struct NutritionResultsView: View {
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.surface))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(themeManager.selectedTheme.colors.accent.opacity(0.2), lineWidth: 1))
+    }
+
+    // MARK: - Macro Balance Card
+
+    @ViewBuilder
+    private func macroBalanceCard(_ nutrition: SavedNutritionFacts) -> some View {
+        let fatCal  = nutrition.totalFatG   * servingsMultiplier * 9
+        let carbCal = nutrition.totalCarbsG * servingsMultiplier * 4
+        let protCal = nutrition.proteinG    * servingsMultiplier * 4
+        let total   = fatCal + carbCal + protCal
+
+        if total > 0 {
+            let fatPct  = CGFloat(fatCal  / total)
+            let carbPct = CGFloat(carbCal / total)
+            let protPct = CGFloat(protCal / total)
+
+            let fatColor  = Color(red: 0.95, green: 0.55, blue: 0.10)
+            let carbColor = Color(red: 0.25, green: 0.55, blue: 0.95)
+            let protColor = Color(red: 0.20, green: 0.80, blue: 0.45)
+
+            VStack(alignment: .leading, spacing: 14) {
+                // Header
+                HStack(spacing: 8) {
+                    Image(systemName: "chart.bar.fill")
+                        .foregroundStyle(themeManager.selectedTheme.colors.accent)
+                    Text("Calorie Split")
+                        .font(.subheadline).fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                    Spacer()
+                    Text("\(Int(total)) cal")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.4))
+                }
+
+                // Segmented bar — uses GeometryReader with explicit sizing to stay left-aligned
+                GeometryReader { geo in
+                    let gap: CGFloat = 4   // 2 gaps × 2 px
+                    let w = geo.size.width - gap
+                    HStack(spacing: 2) {
+                        if fatPct > 0.02 {
+                            RoundedRectangle(cornerRadius: 3).fill(fatColor)
+                                .frame(width: max(0, w * fatPct), height: 16)
+                        }
+                        if carbPct > 0.02 {
+                            RoundedRectangle(cornerRadius: 3).fill(carbColor)
+                                .frame(width: max(0, w * carbPct), height: 16)
+                        }
+                        if protPct > 0.02 {
+                            RoundedRectangle(cornerRadius: 3).fill(protColor)
+                                .frame(width: max(0, w * protPct), height: 16)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                }
+                .frame(height: 16)
+
+                // Legend — three equal columns so nothing shifts
+                HStack(spacing: 0) {
+                    macroLegendItem(color: fatColor,  icon: "drop.fill",     label: "Fat",
+                                    grams: nutrition.totalFatG   * servingsMultiplier, pct: fatPct)
+                    macroLegendItem(color: carbColor, icon: "bolt.fill",     label: "Carbs",
+                                    grams: nutrition.totalCarbsG * servingsMultiplier, pct: carbPct)
+                    macroLegendItem(color: protColor, icon: "dumbbell.fill", label: "Protein",
+                                    grams: nutrition.proteinG    * servingsMultiplier, pct: protPct)
+                }
+            }
+            .padding(16)
+            .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.surface))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.07), lineWidth: 1))
+        }
+    }
+
+    private func macroLegendItem(color: Color, icon: String, label: String, grams: Double, pct: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 4) {
+                Circle().fill(color).frame(width: 7, height: 7)
+                Text(label).font(.caption2).foregroundStyle(.white.opacity(0.5))
+            }
+            Text(grams == grams.rounded() ? "\(Int(grams))g" : String(format: "%.1fg", grams))
+                .font(.subheadline).fontWeight(.bold)
+                .foregroundStyle(.white)
+            Text("\(Int(pct * 100))% of cals")
+                .font(.caption2).foregroundStyle(color)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Insight Card

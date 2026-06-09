@@ -446,13 +446,16 @@ final class IngredientsViewModel {
 
         let session = LanguageModelSession(instructions: systemInstructions)
 
+        let hasBlacklist = !profileStore.profile.blacklistedIngredients.isEmpty
         let noProfileRules = """
-        CRITICAL — No user profile is set:
+        CRITICAL — No user health profile is set:
         - prediction MUST start with exactly "Gut Friendly" followed by one neutral, factual sentence describing what the product is.
-        - triggers MUST be an empty array. Do NOT list any ingredients here.
+        \(hasBlacklist
+            ? "- triggers: ONLY include ingredients from the PERSONAL BLACKLIST above that are present in this product. Empty array if none match."
+            : "- triggers MUST be an empty array. Do NOT list any ingredients here.")
         - cautions MUST be an empty array. Do NOT list any ingredients here.
         - tip: One friendly, positive note (e.g. how to enjoy the product, not a health warning).
-        Do NOT flag, warn about, or mention allergens, additives, or risks of any kind.
+        \(hasBlacklist ? "" : "Do NOT flag, warn about, or mention allergens, additives, or risks of any kind.")
         """
 
         let hasProfileRules = """
@@ -471,6 +474,7 @@ final class IngredientsViewModel {
         4. tip: One practical tip personalised to their profile.
         """
 
+        let blacklistAddendum = profileStore.profile.blacklistPromptAddendum
         let prompt = """
         Analyze this food product.
 
@@ -478,6 +482,7 @@ final class IngredientsViewModel {
         Ingredients: \(ingredientList)
 
         User Profile: \(context.isEmpty ? "NONE — user has not completed their health profile" : context)
+        \(blacklistAddendum)
 
         \(context.isEmpty ? noProfileRules : hasProfileRules)
         """
@@ -512,13 +517,20 @@ final class IngredientsViewModel {
     /// Returns a detailed AI analysis for a single ingredient.
     /// Results are cached in SwiftData — subsequent calls for the same ingredient name
     /// skip the AI and return instantly.
+    /// If a cached record exists but is missing the rich visual fields (keyFacts empty),
+    /// it is deleted and re-analysed so users always get the full experience.
     func analyzeIngredient(_ name: String, in scan: ScanModel) async throws -> IngredientsModel {
-        // Check persistent cache before hitting the AI
         let descriptor = FetchDescriptor<IngredientsModel>(
             predicate: #Predicate { $0.name == name }
         )
         if let cached = try? modelContext.fetch(descriptor).first {
-            return cached
+            // Old record without rich fields — delete and re-run for the full visual experience
+            if cached.keyFacts.isEmpty {
+                modelContext.delete(cached)
+                try? modelContext.save()
+            } else {
+                return cached
+            }
         }
 
         let context = profileStore.profile.foodPromptContext
@@ -533,10 +545,14 @@ final class IngredientsViewModel {
         Full ingredient list for context: \(allIngredients.prefix(400))
         \(context.isEmpty ? "" : "\nUser health context: \(context)")
 
-        Provide:
-        - explanation: What this ingredient is in plain English (1–2 sentences)
-        - digestion: How the body processes it (1–2 sentences)
-        - digestiveFeel: How it typically feels digestively — e.g. well-tolerated, may cause bloating (1 sentence)
+        Provide a rich, detailed analysis including:
+        - explanation: What this ingredient is in plain English (2-3 sentences)
+        - digestion: How the body processes it (2 sentences)
+        - digestiveFeel: The typical physical experience — be specific (1-2 sentences)
+        - safetyRating: One of 'Generally Safe', 'Monitor', 'Use Caution', 'Avoid'
+        - origin: One of 'Natural', 'Semi-Synthetic', 'Synthetic'
+        - processingSpeed: One of 'Fast', 'Moderate', 'Slow'
+        - keyFacts: Exactly 3 short scannable facts (6-12 words each)
 
         Tailor to the user's health context where relevant. Be specific, not generic.
         """
@@ -546,7 +562,11 @@ final class IngredientsViewModel {
             name: name,
             explanation: result.content.explanation,
             digestion: result.content.digestion,
-            digestiveFeel: result.content.digestiveFeel
+            digestiveFeel: result.content.digestiveFeel,
+            safetyRating: result.content.safetyRating,
+            origin: result.content.origin,
+            processingSpeed: result.content.processingSpeed,
+            keyFacts: result.content.keyFacts
         )
         modelContext.insert(model)
         try? modelContext.save()

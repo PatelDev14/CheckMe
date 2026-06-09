@@ -4,13 +4,15 @@ import Observation
 // MARK: - User Profile Data
 
 struct UserProfile: Codable {
-    var foodRestrictions: [String]    = []
-    var foodAllergies: [String]       = []
-    var digestiveConditions: [String] = []
-    var skinType: String              = ""
-    var skinConditions: [String]      = []
-    var healthGoals: [String]         = []
-    var extraNotes: String            = ""
+    var foodRestrictions: [String]        = []
+    var foodAllergies: [String]           = []
+    var digestiveConditions: [String]     = []
+    var skinType: String                  = ""
+    var skinConditions: [String]          = []
+    var healthGoals: [String]             = []
+    var extraNotes: String                = ""
+    /// Ingredients the user has personally chosen to always flag — regardless of health profile.
+    var blacklistedIngredients: [String]  = []
 
     var isEmpty: Bool {
         foodRestrictions.isEmpty &&
@@ -22,18 +24,19 @@ struct UserProfile: Codable {
         extraNotes.isEmpty
     }
 
-    // MARK: - Profile Completeness (5 trackable sections)
+    // MARK: - Profile Completeness (6 trackable sections)
 
-    static let totalSections = 5
+    static let totalSections = 6
 
     /// Names of sections the user has filled in at least partially.
     var completedSections: [String] {
         var s: [String] = []
-        if !foodRestrictions.isEmpty                          { s.append("Dietary") }
+        if !foodRestrictions.isEmpty                              { s.append("Dietary") }
         if !foodAllergies.isEmpty || !digestiveConditions.isEmpty { s.append("Gut Health") }
-        if !skinType.isEmpty || !skinConditions.isEmpty       { s.append("Skin") }
-        if !healthGoals.isEmpty                               { s.append("Goals") }
-        if !extraNotes.isEmpty                                { s.append("Notes") }
+        if !skinType.isEmpty || !skinConditions.isEmpty           { s.append("Skin") }
+        if !healthGoals.isEmpty                                   { s.append("Goals") }
+        if !extraNotes.isEmpty                                    { s.append("Notes") }
+        if !blacklistedIngredients.isEmpty                        { s.append("Blacklist") }
         return s
     }
 
@@ -101,6 +104,19 @@ struct UserProfile: Codable {
             parts.append("Extra notes: \(extraNotes)")
         }
         return parts.isEmpty ? "" : "User profile — \(parts.joined(separator: " "))"
+    }
+
+    /// Extra instruction appended to any AI prompt when the user has a non-empty blacklist.
+    /// The blacklist is a personal preference layer — separate from health-profile triggers.
+    var blacklistPromptAddendum: String {
+        guard !blacklistedIngredients.isEmpty else { return "" }
+        return """
+
+        PERSONAL BLACKLIST — the user has manually flagged these ingredients. \
+        Always include them in the triggers/irritants array if they appear in this product, \
+        regardless of any other health-profile analysis: \
+        \(blacklistedIngredients.joined(separator: ", ")).
+        """
     }
 }
 

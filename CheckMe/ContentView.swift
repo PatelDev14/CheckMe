@@ -74,25 +74,21 @@ private struct AIUnavailableView: View {
                 }
 
                 // Text
-                VStack(spacing: 12) {
-                    Text("Apple Intelligence Required")
-                        .font(.title2).fontWeight(.bold)
-                        .multilineTextAlignment(.center)
-
-                    Text(fmManager.notAvailableReason)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 8)
-                }
+                Text("Apple Intelligence Required")
+                    .font(.title2).fontWeight(.bold)
+                    .multilineTextAlignment(.center)
 
                 // Requirements card
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Requirements")
                         .font(.headline)
 
-                    RequirementRow(icon: "iphone", text: "iPhone 15 Pro, 15 Pro Max, or later")
-                    RequirementRow(icon: "gear", text: "iOS 18.1 or later")
+                    RequirementRow(
+                        icon: "iphone",
+                        text: "iPhone 15 Pro, 15 Pro Max, or any iPhone 16/17 model and newer",
+                        note: "iPhone 15 or lower models are not supported"
+                    )
+                    RequirementRow(icon: "gear", text: "iOS 26 or later")
                     RequirementRow(icon: "brain.head.profile", text: "Apple Intelligence enabled in Settings")
                     RequirementRow(icon: "globe", text: "Device language set to English (US)")
                 }
@@ -101,19 +97,29 @@ private struct AIUnavailableView: View {
                 .padding(.horizontal, 24)
 
                 // Actions
-                VStack(spacing: 12) {
-                    Button {
-                        if let url = URL(string: UIApplication.openSettingsURLString) {
-                            UIApplication.shared.open(url)
+                VStack(spacing: 16) {
+                    if !fmManager.deviceIneligible {
+                        VStack(spacing: 8) {
+                            Button {
+                                if let url = URL(string: "App-prefs:") {
+                                    UIApplication.shared.open(url)
+                                }
+                            } label: {
+                                Label("Open Settings", systemImage: "gear")
+                                    .font(.headline).fontWeight(.semibold)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                                    .background(Color.accentColor)
+                                    .foregroundStyle(.white)
+                                    .clipShape(Capsule())
+                            }
+
+                            Text("Then go to **Apple Intelligence & Siri** and turn on Apple Intelligence.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-                    } label: {
-                        Label("Open Settings", systemImage: "gear")
-                            .font(.headline).fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color.accentColor)
-                            .foregroundStyle(.white)
-                            .clipShape(Capsule())
                     }
 
                     Button {
@@ -128,7 +134,6 @@ private struct AIUnavailableView: View {
 
                 Spacer()
             }
-            .padding(.horizontal, 8)
         }
     }
 }
@@ -136,17 +141,27 @@ private struct AIUnavailableView: View {
 private struct RequirementRow: View {
     let icon: String
     let text: String
+    var note: String? = nil
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .frame(width: 24)
-            Text(text)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-            Spacer()
+                .padding(.top, note != nil ? 1 : 0)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(text)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let note {
+                    Text(note)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
     }
 }

@@ -370,7 +370,8 @@ struct IngredientsListView: View {
                             IngredientRow(
                                 name: ingredient,
                                 triggers: scan.gutPrediction?.triggers ?? [],
-                                cautions: scan.gutPrediction?.cautions ?? []
+                                cautions: scan.gutPrediction?.cautions ?? [],
+                                blacklisted: profileStore.profile.blacklistedIngredients
                             )
                         }
                     }
@@ -380,7 +381,8 @@ struct IngredientsListView: View {
                 AnimatedIngredientBreakdownView(
                     scan: scan,
                     triggers: scan.gutPrediction?.triggers ?? [],
-                    cautions: scan.gutPrediction?.cautions ?? []
+                    cautions: scan.gutPrediction?.cautions ?? [],
+                    blacklisted: profileStore.profile.blacklistedIngredients
                 )
                 .transition(.opacity)
             }
@@ -698,20 +700,32 @@ struct IngredientsListView: View {
 // MARK: - Ingredient Status
 
 private enum IngredientStatus {
-    case safe       // green — no concerns for this user
-    case caution    // yellow — mild concern
-    case trigger    // red — should avoid
+    case safe        // green  — no concerns
+    case caution     // yellow — mild concern from health profile
+    case trigger     // red    — should avoid (health profile)
+    case blacklisted // orange — personally blocked by user
 
     var color: Color {
-        switch self { case .safe: .green; case .caution: .yellow; case .trigger: .red }
+        switch self {
+        case .safe: .green; case .caution: .yellow
+        case .trigger: .red; case .blacklisted: .orange
+        }
     }
 
     var icon: String {
-        switch self { case .safe: "checkmark.circle.fill"; case .caution: "exclamationmark.triangle.fill"; case .trigger: "xmark.octagon.fill" }
+        switch self {
+        case .safe:        "checkmark.circle.fill"
+        case .caution:     "exclamationmark.triangle.fill"
+        case .trigger:     "xmark.octagon.fill"
+        case .blacklisted: "hand.raised.fill"
+        }
     }
 
     var label: String {
-        switch self { case .safe: "OK"; case .caution: "Caution"; case .trigger: "Avoid" }
+        switch self {
+        case .safe: "OK"; case .caution: "Caution"
+        case .trigger: "Avoid"; case .blacklisted: "Blocked"
+        }
     }
 }
 
@@ -721,9 +735,14 @@ private struct IngredientRow: View {
     let name: String
     let triggers: [String]
     let cautions: [String]
+    var blacklisted: [String] = []
 
     private var status: IngredientStatus {
         let lower = name.lowercased()
+        // Blacklist checked first — it's a hard personal block
+        if blacklisted.contains(where: { lower.contains($0.lowercased()) || $0.lowercased().contains(lower) }) {
+            return .blacklisted
+        }
         if triggers.contains(where: { $0.lowercased().contains(lower) || lower.contains($0.lowercased()) }) {
             return .trigger
         }

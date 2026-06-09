@@ -73,8 +73,16 @@ struct OnboardingView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .animation(.easeInOut, value: step)
+                // Absorb drag gestures on the welcome step so the page
+                // never animates sideways — buttons still work normally.
+                .overlay(alignment: .center) {
+                    if step == 0 {
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .gesture(DragGesture())
+                    }
+                }
                 .onChange(of: step) { oldValue, newValue in
-                    // Block swipe-left on welcome page — only allow button
                     if oldValue == 0 && newValue != 0 && !didTapButton {
                         withAnimation { step = 0 }
                     }

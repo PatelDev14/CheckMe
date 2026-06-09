@@ -8,6 +8,7 @@ struct AnimatedIngredientBreakdownView: View {
     let scan: ScanModel
     let triggers: [String]
     let cautions: [String]
+    var blacklisted: [String] = []
 
     @Environment(ThemeManager.self) private var themeManager
 
@@ -28,6 +29,7 @@ struct AnimatedIngredientBreakdownView: View {
                             scan: scan,
                             triggers: triggers,
                             cautions: cautions,
+                            blacklisted: blacklisted,
                             isExpanded: expandedIDs.contains(group.id),
                             onToggle: { toggle(group.id) }
                         )
@@ -105,7 +107,6 @@ struct AnimatedIngredientBreakdownView: View {
 
     private func animateIn() {
         for index in groups.indices {
-            // Stagger each card by 110ms; spring handles the actual motion
             let delay = Double(index) * 0.11
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.68)) {
@@ -133,6 +134,7 @@ private struct CategoryCard: View {
     let scan: ScanModel
     let triggers: [String]
     let cautions: [String]
+    var blacklisted: [String] = []
     let isExpanded: Bool
     let onToggle: () -> Void
 
@@ -141,13 +143,10 @@ private struct CategoryCard: View {
     private var flaggedCount: Int {
         group.items.filter { item in
             let lower = item.lowercased()
-            return triggers.contains { t in
-                let tl = t.lowercased()
-                return tl.contains(lower) || lower.contains(tl)
-            } || cautions.contains { c in
-                let cl = c.lowercased()
-                return cl.contains(lower) || lower.contains(cl)
-            }
+            let inBlacklist = blacklisted.contains { lower.contains($0.lowercased()) || $0.lowercased().contains(lower) }
+            let inTriggers  = triggers.contains  { t in let tl = t.lowercased(); return tl.contains(lower) || lower.contains(tl) }
+            let inCautions  = cautions.contains  { c in let cl = c.lowercased(); return cl.contains(lower) || lower.contains(cl) }
+            return inBlacklist || inTriggers || inCautions
         }.count
     }
 
@@ -179,7 +178,7 @@ private struct CategoryCard: View {
 
                 Spacer()
 
-                // Flagged count (if any triggers/cautions fall in this category)
+                // Flagged count badge (triggers + cautions + blacklisted)
                 if flaggedCount > 0 {
                     HStack(spacing: 3) {
                         Image(systemName: "exclamationmark")
@@ -215,6 +214,7 @@ private struct CategoryCard: View {
                                 name: item,
                                 triggers: triggers,
                                 cautions: cautions,
+                                blacklisted: blacklisted,
                                 categoryColor: group.category.signalColor
                             )
                         }
@@ -252,12 +252,16 @@ private struct IngredientChip: View {
     let name: String
     let triggers: [String]
     let cautions: [String]
+    var blacklisted: [String] = []
     let categoryColor: Color
 
-    private enum ChipStatus { case trigger, caution, neutral }
+    private enum ChipStatus { case blacklisted, trigger, caution, neutral }
 
     private var status: ChipStatus {
         let lower = name.lowercased()
+        if blacklisted.contains(where: { lower.contains($0.lowercased()) || $0.lowercased().contains(lower) }) {
+            return .blacklisted
+        }
         if triggers.contains(where: { lower.contains($0.lowercased()) || $0.lowercased().contains(lower) }) {
             return .trigger
         }
@@ -269,15 +273,19 @@ private struct IngredientChip: View {
 
     private var chipColor: Color {
         switch status {
-        case .trigger: return .red
-        case .caution: return Color(red: 0.95, green: 0.80, blue: 0.15)
-        case .neutral: return categoryColor
+        case .blacklisted: return .orange
+        case .trigger:     return .red
+        case .caution:     return Color(red: 0.95, green: 0.80, blue: 0.15)
+        case .neutral:     return categoryColor
         }
     }
 
     var body: some View {
         HStack(spacing: 4) {
             switch status {
+            case .blacklisted:
+                Image(systemName: "hand.raised.fill")
+                    .font(.caption2).foregroundStyle(chipColor)
             case .trigger:
                 Image(systemName: "xmark.circle.fill")
                     .font(.caption2).foregroundStyle(chipColor)

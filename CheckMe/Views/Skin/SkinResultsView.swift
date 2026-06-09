@@ -344,7 +344,8 @@ struct SkinResultsView: View {
                     SkinIngredientRow(
                         name: ingredient,
                         irritants: scan.skinPrediction?.irritants ?? [],
-                        cautions: scan.skinPrediction?.cautions ?? []
+                        cautions: scan.skinPrediction?.cautions ?? [],
+                        blacklisted: profileStore.profile.blacklistedIngredients
                     )
                 }
             }
@@ -635,17 +636,29 @@ private enum SkinIngredientStatus {
     case safe
     case caution
     case irritant
+    case blacklisted  // orange — personally blocked by user
 
     var color: Color {
-        switch self { case .safe: .green; case .caution: .yellow; case .irritant: .red }
+        switch self {
+        case .safe: .green; case .caution: .yellow
+        case .irritant: .red; case .blacklisted: .orange
+        }
     }
 
     var icon: String {
-        switch self { case .safe: "checkmark.circle.fill"; case .caution: "exclamationmark.triangle.fill"; case .irritant: "xmark.octagon.fill" }
+        switch self {
+        case .safe:        "checkmark.circle.fill"
+        case .caution:     "exclamationmark.triangle.fill"
+        case .irritant:    "xmark.octagon.fill"
+        case .blacklisted: "hand.raised.fill"
+        }
     }
 
     var label: String {
-        switch self { case .safe: "OK"; case .caution: "Watch"; case .irritant: "Avoid" }
+        switch self {
+        case .safe: "OK"; case .caution: "Watch"
+        case .irritant: "Avoid"; case .blacklisted: "Blocked"
+        }
     }
 }
 
@@ -655,9 +668,14 @@ private struct SkinIngredientRow: View {
     let name: String
     let irritants: [String]
     let cautions: [String]
+    var blacklisted: [String] = []
 
     private var status: SkinIngredientStatus {
         let lower = name.lowercased()
+        // Blacklist checked first — hard personal block
+        if blacklisted.contains(where: { lower.contains($0.lowercased()) || $0.lowercased().contains(lower) }) {
+            return .blacklisted
+        }
         if irritants.contains(where: { $0.lowercased().contains(lower) || lower.contains($0.lowercased()) }) {
             return .irritant
         }
