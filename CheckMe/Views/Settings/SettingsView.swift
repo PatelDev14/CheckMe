@@ -141,6 +141,37 @@ struct SettingsView: View {
                     Text("Your Profile")
                 }
 
+                // MARK: Ingredient Blacklist
+                Section {
+                    NavigationLink(destination: BlacklistView().environment(profileStore)) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Ingredient Blacklist")
+                                    .font(.subheadline).fontWeight(.medium)
+                                let count = profileStore.profile.blacklistedIngredients.count
+                                if count == 0 {
+                                    Text("No blocked ingredients")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary.opacity(0.6))
+                                } else {
+                                    Text("\(count) ingredient\(count == 1 ? "" : "s") blocked")
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                }
+                            }
+                            Spacer()
+                            Image(systemName: "hand.raised.fill")
+                                .font(.subheadline)
+                                .foregroundStyle(.orange.opacity(0.8))
+                        }
+                        .padding(.vertical, 4)
+                    }
+                } header: {
+                    Text("Ingredients to Always Flag")
+                } footer: {
+                    Text("Blacklisted ingredients are highlighted with an orange badge in every scan result, regardless of your health profile.")
+                }
+
                 // MARK: Apple Intelligence
                 Section("Apple Intelligence") {
                     if fmManager.isModelAvailable {

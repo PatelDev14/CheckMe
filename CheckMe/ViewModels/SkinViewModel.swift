@@ -269,13 +269,16 @@ final class SkinViewModel {
 
         let session = LanguageModelSession(instructions: systemInstructions)
 
+        let hasBlacklist = !profileStore.profile.blacklistedIngredients.isEmpty
         let noProfileRules = """
         CRITICAL — No user skin profile is set:
         - rating MUST start with exactly "Skin Friendly" followed by one neutral sentence describing what the product does.
-        - irritants MUST be an empty array. Do NOT list any ingredients here.
+        \(hasBlacklist
+            ? "- irritants: ONLY include ingredients from the PERSONAL BLACKLIST above that are present in this product. Empty array if none match."
+            : "- irritants MUST be an empty array. Do NOT list any ingredients here.")
         - cautions MUST be an empty array. Do NOT list any ingredients here.
         - tip: One friendly usage tip (not a health or safety warning).
-        Do NOT flag, warn about, or mention irritants, allergens, or risks of any kind.
+        \(hasBlacklist ? "" : "Do NOT flag, warn about, or mention irritants, allergens, or risks of any kind.")
         """
 
         let hasProfileRules = """
@@ -294,6 +297,7 @@ final class SkinViewModel {
         TIP — one practical tip personalised to their skin profile.
         """
 
+        let blacklistAddendum = profileStore.profile.blacklistPromptAddendum
         let prompt = """
         Analyze this personal care product.
 
@@ -301,6 +305,7 @@ final class SkinViewModel {
         Ingredients: \(ingredientList)
 
         User Skin Profile: \(context.isEmpty ? "NONE — user has not completed their skin profile" : context)
+        \(blacklistAddendum)
 
         \(context.isEmpty ? noProfileRules : hasProfileRules)
         """
@@ -344,7 +349,12 @@ final class SkinViewModel {
             predicate: #Predicate { $0.name == name }
         )
         if let cached = try? modelContext.fetch(descriptor).first {
-            return cached
+            if cached.keyFacts.isEmpty {
+                modelContext.delete(cached)
+                try? modelContext.save()
+            } else {
+                return cached
+            }
         }
 
         let context = profileStore.profile.skinPromptContext
@@ -359,10 +369,14 @@ final class SkinViewModel {
         Full ingredient list for context: \(allIngredients.prefix(400))
         \(context.isEmpty ? "" : "\nUser skin profile: \(context)")
 
-        Provide:
+        Provide a rich, detailed analysis including:
         - explanation: What this ingredient is and its role in skincare (1-2 sentences)
-        - skinEffect: How skin typically responds to it — common effects and benefits or risks (1-2 sentences)
-        - suitability: Whether it is suitable for this user's specific skin type and conditions (1 sentence, personalized)
+        - skinEffect: How skin typically responds — common effects and benefits or risks (1-2 sentences)
+        - suitability: Whether it suits this user's specific skin type and conditions (1 personalized sentence)
+        - safetyRating: One of 'Generally Safe', 'Monitor', 'Use Caution', 'Avoid'
+        - origin: One of 'Natural', 'Semi-Synthetic', 'Synthetic'
+        - penetrationDepth: One of 'Surface', 'Epidermal', 'Dermal'
+        - keyFacts: Exactly 3 short scannable skincare facts (6-12 words each)
 
         Be specific to skincare, not food digestion.
         """
@@ -372,7 +386,11 @@ final class SkinViewModel {
             name: name,
             explanation: result.content.explanation,
             skinEffect: result.content.skinEffect,
-            suitability: result.content.suitability
+            suitability: result.content.suitability,
+            safetyRating: result.content.safetyRating,
+            origin: result.content.origin,
+            penetrationDepth: result.content.penetrationDepth,
+            keyFacts: result.content.keyFacts
         )
         modelContext.insert(model)
         try? modelContext.save()
