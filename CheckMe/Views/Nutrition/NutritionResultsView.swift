@@ -12,11 +12,30 @@ struct NutritionResultsView: View {
     @State private var editedName: String = ""
     @State private var isEditingName = false
     @State private var showingPhoto = false
+    @State private var justLogged = false
+    @State private var selectedMealType: String = NutritionResultsView.defaultMealType()
     @FocusState private var nameFocused: Bool
 
     private let servingOptions: [(label: String, value: Double)] = [
         ("½×", 0.5), ("1×", 1.0), ("1½×", 1.5), ("2×", 2.0)
     ]
+
+    private let mealTypeOptions: [(label: String, icon: String)] = [
+        ("Breakfast", "sunrise.fill"),
+        ("Lunch", "sun.max.fill"),
+        ("Dinner", "moon.stars.fill"),
+        ("Snack", "carrot.fill")
+    ]
+
+    /// Best-guess meal type based on the current time of day.
+    private static func defaultMealType() -> String {
+        switch Calendar.current.component(.hour, from: .now) {
+        case 4..<11:  return "Breakfast"
+        case 11..<16: return "Lunch"
+        case 16..<21: return "Dinner"
+        default:      return "Snack"
+        }
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -31,6 +50,7 @@ struct NutritionResultsView: View {
                         if let nutrition = scan.nutritionFacts {
                             capturedPhotoCard
                             servingPickerCard(nutrition)
+                            logButtonCard(nutrition)
                             NutritionFactsCard(facts: nutrition, servingsMultiplier: servingsMultiplier, startsExpanded: true)
                             macroBalanceCard(nutrition)
                             MicronutrientsView(nutrition: nutrition, servingsMultiplier: servingsMultiplier)
@@ -224,6 +244,93 @@ struct NutritionResultsView: View {
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.surface))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(themeManager.selectedTheme.colors.accent.opacity(0.2), lineWidth: 1))
+    }
+
+    // MARK: - Log This Product
+
+    private func logButtonCard(_ nutrition: SavedNutritionFacts) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Which meal is this?")
+                .font(.subheadline).fontWeight(.semibold)
+                .foregroundStyle(.white)
+
+            HStack(spacing: 8) {
+                ForEach(mealTypeOptions, id: \.label) { option in
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            selectedMealType = option.label
+                        }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: option.icon)
+                                .font(.subheadline)
+                            Text(option.label)
+                                .font(.caption2).fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(selectedMealType == option.label
+                                      ? themeManager.selectedTheme.colors.accent
+                                      : themeManager.selectedTheme.colors.accent.opacity(0.12))
+                        )
+                        .foregroundStyle(selectedMealType == option.label
+                                         ? .white
+                                         : .white.opacity(0.6))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Button {
+                logProduct(nutrition)
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: justLogged ? "checkmark.circle.fill" : "book.closed.fill")
+                        .font(.headline)
+                    Text(justLogged ? "Logged to your diary" : "Log this product")
+                        .font(.headline).fontWeight(.semibold)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(justLogged ? Color.green : themeManager.selectedTheme.colors.accent)
+                )
+                .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+            .disabled(justLogged)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: justLogged)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 14).fill(themeManager.selectedTheme.colors.surface))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(themeManager.selectedTheme.colors.accent.opacity(0.2), lineWidth: 1))
+    }
+
+    private var currentPortionLabel: String {
+        servingOptions.first(where: { $0.value == servingsMultiplier })?.label ?? "\(formatMultiplier(servingsMultiplier))×"
+    }
+
+    private func logProduct(_ nutrition: SavedNutritionFacts) {
+        let entry = LoggedEntry(
+            scan: scan,
+            timestamp: .now,
+            portionMultiplier: servingsMultiplier,
+            portionLabel: currentPortionLabel,
+            mealType: selectedMealType,
+            nutrition: nutrition
+        )
+        modelContext.insert(entry)
+        try? modelContext.save()
+
+        justLogged = true
+        Task {
+            try? await Task.sleep(for: .seconds(1.6))
+            justLogged = false
+        }
     }
 
     // MARK: - Macro Balance Card

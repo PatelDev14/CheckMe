@@ -20,6 +20,7 @@ struct CheckMeApp: App {
             SavedNutritionFacts.self,
             IngredientsModel.self,
             SkinIngredientModel.self,
+            LoggedEntry.self,
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {

@@ -37,6 +37,10 @@ class ScanModel: Identifiable {
     @Relationship(deleteRule: .cascade)
     var nutritionFacts: SavedNutritionFacts?
 
+    /// Diary entries logged against this scan. Inverse relationship is declared on
+    /// `LoggedEntry.scan` with `.nullify` — deleting a scan does not delete its log history.
+    var loggedEntries: [LoggedEntry]? = []
+
     init(itemName: String, ingredients: [String], category: HealthCategory = .food) {
         self.itemName = itemName
         self.ingredients = ingredients

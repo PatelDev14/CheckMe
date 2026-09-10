@@ -24,6 +24,7 @@ struct IngredientsListView: View {
     @State private var editedName: String = ""
     @State private var isEditingName = false
     @State private var showingPhoto = false
+    @State private var justLogged = false
     @FocusState private var nameFocused: Bool
 
     private enum IngredientViewMode: String, CaseIterable {
@@ -56,6 +57,9 @@ struct IngredientsListView: View {
 
                         // Main gut prediction card
                         gutPredictionCard
+
+                        // Quick "I ate/used this" log for the diary
+                        logButtonCard
 
                         // General summary (collapsible)
                         if scan.summary != nil {
@@ -150,6 +154,43 @@ struct IngredientsListView: View {
             .urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(filename)
         return UIImage(contentsOfFile: url.path)
+    }
+
+    // MARK: - Log This Product
+
+    private var logButtonCard: some View {
+        Button {
+            logProduct()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: justLogged ? "checkmark.circle.fill" : "book.closed.fill")
+                    .font(.headline)
+                Text(justLogged ? "Logged to your diary" : "Log this product")
+                    .font(.headline).fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(justLogged ? Color.green : themeManager.selectedTheme.colors.accent)
+            )
+            .foregroundStyle(.white)
+        }
+        .buttonStyle(.plain)
+        .disabled(justLogged)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: justLogged)
+    }
+
+    private func logProduct() {
+        let entry = LoggedEntry(scan: scan, timestamp: .now, gutPrediction: scan.gutPrediction)
+        modelContext.insert(entry)
+        try? modelContext.save()
+
+        justLogged = true
+        Task {
+            try? await Task.sleep(for: .seconds(1.6))
+            justLogged = false
+        }
     }
 
     // MARK: - Header
@@ -831,24 +872,4 @@ private struct SummaryRow: View {
     }
 }
 
-// MARK: - Gut Rating Helper
-
-/// Parses the AI's prediction string to extract a rating enum for color/icon/label.
-private struct GutRating {
-    let label: String
-    let color: Color
-    let icon: String
-
-    init(from prediction: String) {
-        let lower = prediction.lowercased()
-        if lower.contains("gut friendly") {
-            label = "Gut Friendly"; color = .green; icon = "checkmark.seal.fill"
-        } else if lower.contains("moderate risk") {
-            label = "Moderate Risk"; color = .orange; icon = "exclamationmark.triangle.fill"
-        } else if lower.contains("high risk") {
-            label = "High Risk"; color = .red; icon = "xmark.octagon.fill"
-        } else {
-            label = "Unknown"; color = .gray; icon = "questionmark.circle.fill"
-        }
-    }
-}
+// Note: GutRating is defined in Utilities/GutRating.swift (shared with DiaryView).
