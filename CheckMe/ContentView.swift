@@ -31,6 +31,9 @@ struct ContentView: View {
                     Tab("Personal Care", systemImage: "sparkles") {
                         SkinScanView()
                     }
+                    Tab("Diary", systemImage: "calendar") {
+                        DiaryView()
+                    }
                     Tab("Settings", systemImage: "gear") {
                         SettingsView()
                     }
